@@ -4,5 +4,5 @@ include "std.pang"
 clear
 
 push "Hello World!"
-open stdout
+open "test.txt"
 puts string
