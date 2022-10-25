@@ -1,0 +1,8 @@
+include "std.pang"
+
+// remove args
+clear
+
+push "Hello World!"
+open stdout
+puts string
