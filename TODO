@@ -1,0 +1,25 @@
+Opening files: Incomplete
+    - Reading files: No
+    - Writing files: Yes
+
+If statements: Incomplete
+    - Implement: No
+
+Loops: Incomplete
+    - Implement: No
+
+Modules/libraries: Complete
+    - Implement: Yes
+    - Includes: Yes
+    - Standard library: ? Yes
+
+Macros: Complete
+    - Expanding before interpreting tokens: Yes
+    - Standard library macros: ? Yes
+
+Text highlighting: Incomplete
+    - VSCode: No
+
+C/C++ program to run pang files outside of terminal: Incomplete
+    - Implement program: No
+    - Unicode: No
