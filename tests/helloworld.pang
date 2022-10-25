@@ -1,2 +1,2 @@
 // Smallest hello world program starting at line 2 (Only runs with no args - excluding filename)
-$"Hello World!"$1[string$10$1[char]]@
+;$"Hello World!"$1[string$10$1[char]
