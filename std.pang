@@ -10,6 +10,8 @@ macro swap  ^ end // swaps last item and current item on stack
 macro add   + end // adds last item and current item, dropping both items and appending output to stack
 macro sub   - end // subtracts last item and current item, dropping both items and appending output to stack
 macro clear ; end // remove every item on stack
+macro dup   } end // append the last item on the stack to the stack
+macro over  # end // swap last item with item 2 blocks behind
 macro open  : end // open a file
 
 // stdin, stdout, stderr

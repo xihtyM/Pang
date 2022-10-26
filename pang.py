@@ -19,8 +19,10 @@ class TokenType(Enum):
     STR = auto()
     END = auto()
     POP = auto()
+    DUP = auto()
     PUSH = auto()
     SWAP = auto()
+    OVER = auto()
     DROP = auto()
     PUTS = auto()
     GETS = auto()
@@ -29,6 +31,7 @@ class TokenType(Enum):
     WHILE = auto()
     MACRO = auto()
     CLEAR = auto()
+    CONDITION = auto()
 
 @dataclass
 class Token():
@@ -187,6 +190,10 @@ class Lexer():
                 self.atom(TokenType.OPEN)
             elif current == "{":
                 self.atom(TokenType.GETS)
+            elif current == "}":
+                self.atom(TokenType.DUP)
+            elif current == "#":
+                self.atom(TokenType.OVER)
             #elif current == "?":
             #    self.atom(TokenType.IF)
             elif current in "\"\'":
@@ -195,6 +202,8 @@ class Lexer():
                 self.identifier()
             elif current in "1234567890":
                 self.num()
+            elif current in "<>=!":
+                self.atom(TokenType.CONDITION)
             else:
                 assert False, "Unhandled token type/raw text: %s:%d" % (current, self.index)
 
@@ -213,10 +222,14 @@ class Lexer():
             if tok.typ == TokenType.MACRO:
                 if macro:
                     assert False, "Macro cannot be called macro: macro:%d" % tok.ind
+
                 macro_name = True
                 continue
             
             if macro_name:
+                if tok.typ != TokenType.ID:
+                    assert False, "Macro must have an ID"
+                
                 cur_name = tok.raw
                 macro_name = False
                 macro = True
@@ -255,6 +268,222 @@ class Lexer():
         
         self.toks = macro_added_toks
 
+def simulate_while(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
+    condition = tok_stream[start + 1].raw
+    compare_typ = tok_stream[start + 2].raw
+    skip = 0
+    index = start + 3
+    editing_stack = True
+
+    if stack[-1] != condition and compare_typ == "=":
+        editing_stack = False
+    if stack[-1] == condition and compare_typ == "!":
+        editing_stack = False
+    if stack[-1] > condition - 1 and compare_typ == ">":
+        editing_stack = False
+    if stack[-1] < condition + 1 and compare_typ == "<":
+        editing_stack = False
+
+    skip_next_end = 0
+
+    while True:
+        tok = tok_stream[index]
+        if skip:
+            skip -= 1
+            continue
+
+        if tok.typ == TokenType.WHILE and not editing_stack:
+            skip_next_end += 1
+            index += 1
+            continue
+
+        if tok.typ == TokenType.END:
+            if skip_next_end:
+                skip_next_end -= 1
+                index += 1
+                continue
+            
+            if stack[-1] != condition and compare_typ == "=":
+                break
+            if stack[-1] == condition and compare_typ == "!":
+                break
+            if stack[-1] > condition - 1 and compare_typ == ">":
+                break
+            if stack[-1] < condition + 1 and compare_typ == "<":
+                break
+            
+            index = start + 3
+
+        if editing_stack:
+            stack, skip = simulate_token(stack, tok_stream, index)
+        
+        index += 1
+    
+    return stack, index - start
+
+def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
+    tok = tok_stream[start]
+    skip = 0
+    
+    if tok.typ == TokenType.PUSH:
+        new_tok = tok_stream[start + 1]
+
+        if new_tok.typ not in (TokenType.INT, TokenType.STR):
+            assert False, "Incorrect data type at index %d" % new_tok.ind
+
+        if new_tok.typ == TokenType.STR:
+            for ch in new_tok.raw[::-1]:
+                stack.append(ord(ch))
+            
+            stack.append(len(new_tok.raw))
+            skip += 1
+            return stack, skip
+
+        stack.append(new_tok.raw)
+        skip += 1
+    elif tok.typ == TokenType.PUTS:
+        stream = stack.pop()
+
+        # stdin is read-only
+        if stream == 0:
+            assert False, "stream STDIN is read-only"
+
+        new_tok = tok_stream[start + 1]
+
+        if new_tok.typ != TokenType.TYPE:
+            assert False, "Must be a valid data type: %s:%d" % (new_tok.raw, new_tok.ind)
+        
+        if stream not in (1, 2):
+            if new_tok.raw == "char":
+                os.write(stream, bytes(chr(stack[-1]), encoding="utf-8"))
+            elif new_tok.raw == "int":
+                os.write(stream, bytes(str(stack[-1]), encoding="utf-8"))
+            elif new_tok.raw == "string":
+                for _ in range(stack.pop()):
+                    os.write(stream, bytes(chr(stack.pop()), encoding="utf-8"))
+            else:
+                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+            os.close(stream)
+        elif stream == 1:
+            if new_tok.raw == "char":
+                sys.stdout.write(chr(stack[-1]))
+            elif new_tok.raw == "int":
+                sys.stdout.write(str(stack[-1]))
+            elif new_tok.raw == "string":
+                for _ in range(stack.pop()):
+                    sys.stdout.write(chr(stack.pop()))
+            else:
+                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+        elif stream == 2:
+            if new_tok.raw == "char":
+                sys.stderr.write(chr(stack[-1]))
+            elif new_tok.raw == "int":
+                sys.stderr.write(str(stack[-1]))
+            elif new_tok.raw == "string":
+                for _ in range(stack.pop()):
+                    sys.stderr.write(chr(stack.pop()))
+            else:
+                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+        skip += 1
+    elif tok.typ == TokenType.GETS:
+        stream = stack.pop()
+        read_typ = stack.pop()
+        
+        if stream == 0:
+            if read_typ == T_READLINE:
+                inp = input()
+                for ch in inp[::-1]:
+                    stack.append(ord(ch))
+                stack.append(len(inp))
+            elif read_typ == T_READALL:
+                assert False, "Cannot read all characters from STDIN"
+            elif read_typ > 0:
+                if gtch:
+                    inp = ""
+                    for _ in range(read_typ):
+                        inp += bytes.decode(getche(), encoding="utf-8")
+                else:
+                    # If getch doesn't exist, just split the string until the max output is reached
+                    inp = input()
+                
+                for ch in inp[::-1][:read_typ]:
+                    stack.append(ord(ch))
+                
+                stack.append(read_typ)
+            else:
+                assert False, "Invalid read type"
+        else:
+            fstream = os.fdopen(stream, "r")
+            contents = fstream.read()[::-1]
+
+            if read_typ == T_READLINE:
+                ln = contents[:contents.find("\n")]
+                for ch in ln:
+                    stack.append(ord(ch))
+                stack.append(len(ln))
+            elif read_typ == T_READALL:
+                for ch in contents:
+                    stack.append(ord(ch))
+                stack.append(len(contents))
+            elif read_typ > 0:
+                for ch in contents[:read_typ]:
+                    stack.append(ord(ch))
+                stack.append(read_typ)
+            else:
+                assert False, "Invalid read type"
+            os.close(stream)
+    elif tok.typ == TokenType.WHILE:
+        stack, skip = simulate_while(stack, tok_stream, start)
+    elif tok.typ == TokenType.DUP:
+        stack.append(stack[-1])
+    elif tok.typ == TokenType.OVER:
+        if len(stack) < 3:
+            assert False, "Not enough items for intrinsic OVER"
+            
+        stack[-3], stack[-1] = stack[-1], stack[-3]
+    elif tok.typ == TokenType.OPEN:
+        file_tok = tok_stream[start + 1]
+
+        if file_tok.typ != TokenType.STR:
+            assert False, "Must be a valid string: %s:%d" % (file_tok.raw, file_tok.ind)
+        
+        try:
+            file_descriptor = os.open(file_tok.raw, os.O_RDWR)
+        except FileNotFoundError:
+            # create file
+            open(file_tok.raw, "x")
+            file_descriptor = os.open(file_tok.raw, os.O_RDWR)
+        stack.append(file_descriptor)
+        skip += 1
+    elif tok.typ == TokenType.DROP:
+        if len(stack) == 0:
+            assert False, "Not enough values on stack to drop: %s:%d" % (tok.raw, tok.ind)
+
+        stack.pop()
+    elif tok.typ == TokenType.SWAP:
+        if len(stack) < 2:
+            assert False, "Not enough values on stack to swap: %s:%d" % (tok.raw, tok.ind)
+
+        stack.append(stack.pop(-2))
+        stack.append(stack.pop(-1))
+    elif tok.typ == TokenType.ADD:
+        if len(stack) < 2:
+            assert False, "Not enough values on stack to add: %s:%d" % (tok.raw, tok.ind)
+
+        stack.append(stack.pop(-2) + stack.pop(-1))
+    elif tok.typ == TokenType.SUB:
+        if len(stack) < 2:
+            assert False, "Not enough values on stack to sub: %s:%d" % (tok.raw, tok.ind)
+
+        stack.append(stack.pop(-2) - stack.pop(-1))
+    elif tok.typ == TokenType.POP:
+        for _ in range(stack.pop()):
+            stack.pop()
+    elif tok.typ == TokenType.CLEAR:
+        stack = []
+    
+    return stack, skip
+
 def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
     stack = []
 
@@ -267,161 +496,28 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
 
     skip = 0
 
-    for ind, tok in enumerate(tok_stream):
+    for ind, _ in enumerate(tok_stream):
         if skip:
             skip -= 1
             continue
 
-        if tok.typ == TokenType.PUSH:
-            new_tok = tok_stream[ind + 1]
-
-            if new_tok.typ not in (TokenType.INT, TokenType.STR):
-                assert False, "Incorrect data type at index %d" % new_tok.ind
-
-            if new_tok.typ == TokenType.STR:
-                for ch in new_tok.raw[::-1]:
-                    stack.append(ord(ch))
-                
-                stack.append(len(new_tok.raw))
-                skip += 1
-                continue
-
-            stack.append(new_tok.raw)
-            skip += 1
-        elif tok.typ == TokenType.PUTS:
-            stream = stack.pop()
-
-            # stdin is read-only
-            if stream == 0:
-                assert False, "stream STDIN is read-only"
-
-            new_tok = tok_stream[ind + 1]
-
-            if new_tok.typ != TokenType.TYPE:
-                assert False, "Must be a valid data type: %s:%d" % (new_tok.raw, new_tok.ind)
-            
-            if stream not in (1, 2):
-                if new_tok.raw == "char":
-                    os.write(stream, bytes(chr(stack[-1]), encoding="utf-8"))
-                elif new_tok.raw == "int":
-                    os.write(stream, bytes(str(stack[-1]), encoding="utf-8"))
-                elif new_tok.raw == "string":
-                    for _ in range(stack.pop()):
-                        os.write(stream, bytes(chr(stack.pop()), encoding="utf-8"))
-                else:
-                    assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
-                os.close(stream)
-            elif stream == 1:
-                if new_tok.raw == "char":
-                    sys.stdout.write(chr(stack[-1]))
-                elif new_tok.raw == "int":
-                    sys.stdout.write(str(stack[-1]))
-                elif new_tok.raw == "string":
-                    for _ in range(stack.pop()):
-                        sys.stdout.write(chr(stack.pop()))
-                else:
-                    assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
-            elif stream == 2:
-                if new_tok.raw == "char":
-                    sys.stderr.write(chr(stack[-1]))
-                elif new_tok.raw == "int":
-                    sys.stderr.write(str(stack[-1]))
-                elif new_tok.raw == "string":
-                    for _ in range(stack.pop()):
-                        sys.stderr.write(chr(stack.pop()))
-                else:
-                    assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
-            skip += 1
-        elif tok.typ == TokenType.GETS:
-            stream = stack.pop()
-            read_typ = stack.pop()
-            
-            if stream == 0:
-                if read_typ == T_READLINE:
-                    inp = input()
-                    for ch in inp[::-1]:
-                        stack.append(ord(ch))
-                    stack.append(len(inp))
-                elif read_typ == T_READALL:
-                    assert False, "Cannot read all characters from STDIN"
-                elif read_typ > 0:
-                    if gtch:
-                        inp = ""
-                        for _ in range(read_typ):
-                            inp += bytes.decode(getche(), encoding="utf-8")
-                    else:
-                        # If getch doesn't exist, just split the string until the max output is reached
-                        inp = input()
-                    
-                    for ch in inp[::-1][:read_typ]:
-                        stack.append(ord(ch))
-                    
-                    stack.append(read_typ)
-                else:
-                    assert False, "Invalid read type"
-            else:
-                fstream = os.fdopen(stream, "r")
-                contents = fstream.read()[::-1]
-
-                if read_typ == T_READLINE:
-                    ln = contents[:contents.find("\n")]
-                    for ch in ln:
-                        stack.append(ord(ch))
-                    stack.append(len(ln))
-                elif read_typ == T_READALL:
-                    for ch in contents:
-                        stack.append(ord(ch))
-                    stack.append(len(contents))
-                elif read_typ > 0:
-                    for ch in contents[:read_typ]:
-                        stack.append(ord(ch))
-                    stack.append(read_typ)
-                else:
-                    assert False, "Invalid read type"
-                os.close(stream)
-        elif tok.typ == TokenType.OPEN:
-            file_tok = tok_stream[ind + 1]
-
-            if file_tok.typ != TokenType.STR:
-                assert False, "Must be a valid string: %s:%d" % (file_tok.raw, file_tok.ind)
-            
-            try:
-                file_descriptor = os.open(file_tok.raw, os.O_RDWR)
-            except FileNotFoundError:
-                # create file
-                open(file_tok.raw, "x")
-                file_descriptor = os.open(file_tok.raw, os.O_RDWR)
-            stack.append(file_descriptor)
-            skip += 1
-        elif tok.typ == TokenType.DROP:
-            if len(stack) == 0:
-                assert False, "Not enough values on stack to drop: %s:%d" % (tok.raw, tok.ind)
-
-            stack.pop()
-        elif tok.typ == TokenType.SWAP:
-            if len(stack) < 2:
-                assert False, "Not enough values on stack to swap: %s:%d" % (tok.raw, tok.ind)
-
-            stack.append(stack.pop(-2))
-            stack.append(stack.pop(-1))
-        elif tok.typ == TokenType.ADD:
-            if len(stack) < 2:
-                assert False, "Not enough values on stack to add: %s:%d" % (tok.raw, tok.ind)
-
-            stack.append(stack.pop(-2) + stack.pop(-1))
-        elif tok.typ == TokenType.SUB:
-            if len(stack) < 2:
-                assert False, "Not enough values on stack to sub: %s:%d" % (tok.raw, tok.ind)
-
-            stack.append(stack.pop(-2) - stack.pop(-1))
-        elif tok.typ == TokenType.POP:
-            for _ in range(stack.pop()):
-                stack.pop()
-        elif tok.typ == TokenType.CLEAR:
-            stack = []
+        stack, skip = simulate_token(stack, tok_stream, ind)
 
     if len(stack) > 0:
+        print(stack)
         assert False, "Must drop all items on stack"
+
+def compile_tokens(tok_stream: list[Token]) -> str:
+    """ Expands macros etc """
+
+    out = ""
+    for tok in tok_stream:
+        if tok.typ == TokenType.STR:
+            out += "\"" + tok.raw + "\""
+        else:
+            out += str(tok.raw)
+    
+    return out
 
 def run_program():
     arg_st = False
@@ -441,6 +537,7 @@ def run_program():
     lex_src.get_tokens()
 
     simulate_tokens(args, lex_src.toks)
+    #print(compile_tokens(lex_src.toks))
 
 if __name__ == "__main__":
     run_program()

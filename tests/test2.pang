@@ -1,0 +1,27 @@
+// calculates first 300 fib numbers
+
+include "std.pang"
+
+clear
+
+push 2
+
+// manually printing first 2 fib nums because I have no if statements implemented yet
+push "0: 0" println
+push "1: 1" println
+
+push 0
+push 1
+
+while 222232244629420445529739893461909967206666939096499764990979600 > // 300th fib num
+    dup over+
+
+    over dup printi
+    push 1+ over
+    push ": " print
+
+    dup printi
+    push 10 printch
+end
+
+clear
