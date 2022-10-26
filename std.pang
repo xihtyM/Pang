@@ -18,10 +18,15 @@ macro stderr 2 end
 
 // all pang functions
 
-// prints string with puts
+// prints string to file with puts
+macro fprint
+    puts string
+end
+
+// prints string to stdout with puts
 macro print
     push stdout
-    puts string
+    fprint
 end
 
 // pushes 0 to stack, can be used to achieve negative numbers, for example:
@@ -37,3 +42,11 @@ macro println
     push stdout
     puts char drop
 end
+
+// prints string to file with puts and newline
+// implement dup, flip, back
+// macro fprintln
+//     dup back fprint
+//     push 10 // char for \n
+//     flip puts char drop
+// end
