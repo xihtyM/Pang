@@ -29,31 +29,10 @@ macro readline push 0 end // 0
 
 // all pang functions
 
-// prints string to file with puts
-macro fprint
+// prints string with puts
+macro print
+    push stdout
     puts string
-end
-
-// prints char to file with puts
-macro fprintch
-    puts char drop
-end
-
-// prints int to file with puts
-macro fprinti
-    puts int drop
-end
-
-// prints int with fprinti to stdout
-macro printi
-    push stdout
-    fprinti
-end
-
-// prints char with fprintch to stdout
-macro printch
-    push stdout
-    fprintch
 end
 
 // prints string with fprint to stdout
@@ -68,17 +47,4 @@ macro println
     push 10 // char for \n
     push stdout
     puts char drop
-end
-
-// read contents of file
-macro fread
-    readall swap
-    gets
-end
-
-// readline from stdout
-macro input
-    readline
-    push stdin
-    gets
 end
