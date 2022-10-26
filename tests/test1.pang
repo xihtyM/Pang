@@ -5,4 +5,4 @@ clear
 
 push "Hello World!"
 open "test.txt"
-puts string
+fprint

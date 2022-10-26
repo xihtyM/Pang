@@ -2,6 +2,7 @@
 
 macro drop  ] end // drop last item on stack
 macro puts  [ end // print to file with file descriptor from open
+macro gets  { end // input from file
 macro pop   @ end // drop last string on stack
 macro push  $ end // push item to stack, (strings/unsigned int)
 macro while / end // while loop
@@ -16,18 +17,49 @@ macro stdin  0 end
 macro stdout 1 end
 macro stderr 2 end
 
-// all pang functions
-
-// prints string with puts
-macro print
-    push stdout
-    puts string
-end
-
 // pushes 0 to stack, can be used to achieve negative numbers, for example:
 // neg push 10 sub // will push -10 to stack, be careful printing strings/chars with negative numbers
 macro neg
     push 0
+end
+
+// gets open files
+macro readall  neg push 1 sub end // -1
+macro readline push 0 end // 0
+
+// all pang functions
+
+// prints string to file with puts
+macro fprint
+    puts string
+end
+
+// prints char to file with puts
+macro fprintch
+    puts char drop
+end
+
+// prints int to file with puts
+macro fprinti
+    puts int drop
+end
+
+// prints int with fprinti to stdout
+macro printi
+    push stdout
+    fprinti
+end
+
+// prints char with fprintch to stdout
+macro printch
+    push stdout
+    fprintch
+end
+
+// prints string with fprint to stdout
+macro print
+    push stdout
+    fprint
 end
 
 // prints string with puts and newline
@@ -36,4 +68,17 @@ macro println
     push 10 // char for \n
     push stdout
     puts char drop
+end
+
+// read contents of file
+macro fread
+    readall swap
+    gets
+end
+
+// readline from stdout
+macro input
+    readline
+    push stdin
+    gets
 end

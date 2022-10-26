@@ -3,7 +3,13 @@ from enum import Enum, auto
 from typing import Union
 import sys
 import os
-import time
+
+gtch = True
+
+try:
+    from msvcrt import getche
+except ImportError:
+    gtch = False
 
 class TokenType(Enum):
     ID = auto()
@@ -17,6 +23,7 @@ class TokenType(Enum):
     SWAP = auto()
     DROP = auto()
     PUTS = auto()
+    GETS = auto()
     TYPE = auto()
     OPEN = auto()
     WHILE = auto()
@@ -28,6 +35,9 @@ class Token():
     typ: TokenType
     raw: Union[str, int]
     ind: int
+
+T_READLINE = 0
+T_READALL = -1
 
 class Lexer():
     def __init__(self, src) -> None:
@@ -175,6 +185,8 @@ class Lexer():
                 self.atom(TokenType.CLEAR)
             elif current == ":":
                 self.atom(TokenType.OPEN)
+            elif current == "{":
+                self.atom(TokenType.GETS)
             #elif current == "?":
             #    self.atom(TokenType.IF)
             elif current in "\"\'":
@@ -279,6 +291,10 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
         elif tok.typ == TokenType.PUTS:
             stream = stack.pop()
 
+            # stdin is read-only
+            if stream == 0:
+                assert False, "stream STDIN is read-only"
+
             new_tok = tok_stream[ind + 1]
 
             if new_tok.typ != TokenType.TYPE:
@@ -316,6 +332,53 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
                 else:
                     assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
             skip += 1
+        elif tok.typ == TokenType.GETS:
+            stream = stack.pop()
+            read_typ = stack.pop()
+            
+            if stream == 0:
+                if read_typ == T_READLINE:
+                    inp = input()
+                    for ch in inp[::-1]:
+                        stack.append(ord(ch))
+                    stack.append(len(inp))
+                elif read_typ == T_READALL:
+                    assert False, "Cannot read all characters from STDIN"
+                elif read_typ > 0:
+                    if gtch:
+                        inp = ""
+                        for _ in range(read_typ):
+                            inp += bytes.decode(getche(), encoding="utf-8")
+                    else:
+                        # If getch doesn't exist, just split the string until the max output is reached
+                        inp = input()
+                    
+                    for ch in inp[::-1][:read_typ]:
+                        stack.append(ord(ch))
+                    
+                    stack.append(read_typ)
+                else:
+                    assert False, "Invalid read type"
+            else:
+                fstream = os.fdopen(stream, "r")
+                contents = fstream.read()[::-1]
+
+                if read_typ == T_READLINE:
+                    ln = contents[:contents.find("\n")]
+                    for ch in ln:
+                        stack.append(ord(ch))
+                    stack.append(len(ln))
+                elif read_typ == T_READALL:
+                    for ch in contents:
+                        stack.append(ord(ch))
+                    stack.append(len(contents))
+                elif read_typ > 0:
+                    for ch in contents[:read_typ]:
+                        stack.append(ord(ch))
+                    stack.append(read_typ)
+                else:
+                    assert False, "Invalid read type"
+                os.close(stream)
         elif tok.typ == TokenType.OPEN:
             file_tok = tok_stream[ind + 1]
 
