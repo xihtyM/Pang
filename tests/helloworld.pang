@@ -1,2 +1,2 @@
 // Smallest hello world program
-;$"Hello World!"$1[string$10$1[char]
+;$"Hello World!"$1[string

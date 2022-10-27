@@ -13,12 +13,12 @@ except ImportError:
 
 class TokenType(Enum):
     ID = auto()
+    DO = auto()
     INT = auto()
     SUB = auto()
     ADD = auto()
     STR = auto()
     END = auto()
-    POP = auto()
     DUP = auto()
     PUSH = auto()
     SWAP = auto()
@@ -28,6 +28,8 @@ class TokenType(Enum):
     GETS = auto()
     TYPE = auto()
     OPEN = auto()
+    BACK = auto()
+    FRONT = auto()
     WHILE = auto()
     MACRO = auto()
     CLEAR = auto()
@@ -150,6 +152,8 @@ class Lexer():
             self.toks.append(Token(TokenType.END, raw, start))
         elif raw == "include":
             self.include_file()
+        elif raw == "do":
+            self.toks.append(Token(TokenType.DO, raw, start))
         else:
             self.toks.append(Token(TokenType.ID, raw, start))
 
@@ -182,8 +186,6 @@ class Lexer():
                 self.atom(TokenType.DROP)
             elif current == "/":
                 self.comment_or_while()
-            elif current == "@":
-                self.atom(TokenType.POP)
             elif current == ";":
                 self.atom(TokenType.CLEAR)
             elif current == ":":
@@ -194,6 +196,10 @@ class Lexer():
                 self.atom(TokenType.DUP)
             elif current == "#":
                 self.atom(TokenType.OVER)
+            elif current == "@":
+                self.atom(TokenType.BACK)
+            elif current == "~":
+                self.atom(TokenType.FRONT)
             #elif current == "?":
             #    self.atom(TokenType.IF)
             elif current in "\"\'":
@@ -209,19 +215,24 @@ class Lexer():
 
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
-        
+
+
         macro_added_toks = []
         macro = False
         macro_name = False
+        skip_end = 0
         cur_name = ""
         cur_toks = []
         macros = {}
 
         # Add macros
         for tok in self.toks:
+            if tok.typ in (TokenType.DO, ):
+                skip_end += 1
+            
             if tok.typ == TokenType.MACRO:
                 if macro:
-                    assert False, "Macro cannot be called macro: macro:%d" % tok.ind
+                    assert False, "Macro cannot include macro: %s:%d" % (tok.raw, tok.ind)
 
                 macro_name = True
                 continue
@@ -236,11 +247,14 @@ class Lexer():
                 continue
 
             if macro:
-                if tok.typ == TokenType.END:
+                if tok.typ == TokenType.END and not skip_end:
                     macro = False
                     macros[cur_name] = cur_toks
                     cur_toks = []
                     continue
+                
+                if tok.typ == TokenType.END and skip_end:
+                    skip_end -= 1
                 
                 if tok.typ != TokenType.ID:
                     cur_toks.append(tok)
@@ -250,11 +264,18 @@ class Lexer():
         
         keys = macros.keys()
         skip_macro = False
+        skip_end = 0
 
         for tok in self.toks:
+
             if skip_macro:
-                if tok.typ == TokenType.END:
+                if tok.typ in (TokenType.DO, ):
+                    skip_end += 1
+                elif tok.typ == TokenType.END and not skip_end:
                     skip_macro = False
+                elif tok.typ == TokenType.END and skip_end:
+                    skip_end -= 1
+                
                 continue
                 
             if tok.raw in keys and tok.typ == TokenType.ID:
@@ -268,11 +289,9 @@ class Lexer():
         
         self.toks = macro_added_toks
 
-def simulate_while(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
-    condition = tok_stream[start + 1].raw
-    compare_typ = tok_stream[start + 2].raw
+def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Token, condition: Token) -> tuple[list[int], int]:
     skip = 0
-    index = start + 3
+    index = start + 1
     editing_stack = True
 
     if stack[-1] != condition and compare_typ == "=":
@@ -288,11 +307,12 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int) -> tup
 
     while True:
         tok = tok_stream[index]
+
         if skip:
             skip -= 1
             continue
 
-        if tok.typ == TokenType.WHILE and not editing_stack:
+        if tok.typ == TokenType.DO and not editing_stack:
             skip_next_end += 1
             index += 1
             continue
@@ -312,7 +332,8 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int) -> tup
             if stack[-1] < condition + 1 and compare_typ == "<":
                 break
             
-            index = start + 3
+            index = start + 1
+            continue
 
         if editing_stack:
             stack, skip = simulate_token(stack, tok_stream, index)
@@ -432,12 +453,20 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
             else:
                 assert False, "Invalid read type"
             os.close(stream)
-    elif tok.typ == TokenType.WHILE:
-        stack, skip = simulate_while(stack, tok_stream, start)
+    elif tok.typ == TokenType.DO:
+        loop = tok_stream[start - 3]
+        condition = tok_stream[start - 2].raw
+        compare_typ = tok_stream[start - 1].raw
+
+        if loop.typ in (TokenType.WHILE, ):
+            stack, skip = simulate_while(stack, tok_stream, start, compare_typ, condition)
+        else:
+            assert False, "Not implemented"
     elif tok.typ == TokenType.DUP:
         stack.append(stack[-1])
     elif tok.typ == TokenType.OVER:
         if len(stack) < 3:
+            
             assert False, "Not enough items for intrinsic OVER"
             
         stack[-3], stack[-1] = stack[-1], stack[-3]
@@ -466,6 +495,10 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
 
         stack.append(stack.pop(-2))
         stack.append(stack.pop(-1))
+    elif tok.typ == TokenType.BACK:
+        stack.insert(0, stack.pop())
+    elif tok.typ == TokenType.FRONT:
+        stack.append(stack.pop(0))
     elif tok.typ == TokenType.ADD:
         if len(stack) < 2:
             assert False, "Not enough values on stack to add: %s:%d" % (tok.raw, tok.ind)
@@ -476,9 +509,6 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
             assert False, "Not enough values on stack to sub: %s:%d" % (tok.raw, tok.ind)
 
         stack.append(stack.pop(-2) - stack.pop(-1))
-    elif tok.typ == TokenType.POP:
-        for _ in range(stack.pop()):
-            stack.pop()
     elif tok.typ == TokenType.CLEAR:
         stack = []
     
@@ -504,7 +534,6 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
         stack, skip = simulate_token(stack, tok_stream, ind)
 
     if len(stack) > 0:
-        print(stack)
         assert False, "Must drop all items on stack"
 
 def compile_tokens(tok_stream: list[Token]) -> str:
@@ -533,10 +562,11 @@ def run_program():
         args = sys.argv[1:]
     
     src = open(args[0], "r", encoding="utf-8").read()
+    
     lex_src = Lexer(src)
     lex_src.get_tokens()
 
-    simulate_tokens(args, lex_src.toks)
+    simulate_tokens(args[::-1], lex_src.toks)
     #print(compile_tokens(lex_src.toks))
 
 if __name__ == "__main__":

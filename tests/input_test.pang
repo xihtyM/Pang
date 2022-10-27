@@ -2,12 +2,11 @@ include "std.pang"
 
 clear
 
-readall
-open "pang.py"
+readline
+push stdin
 gets
 
-push 10
-push "file contains: "
-push 1 add // lmao adding 1 to size of string
+push 10 printch
 
-println print
+push "file contains: "
+println println
