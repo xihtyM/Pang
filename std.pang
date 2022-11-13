@@ -1,30 +1,53 @@
 // all pure pang operators
 
-macro drop  ] end // drop last item on stack
-macro puts  [ end // print to file with file descriptor from open
-macro gets  { end // input from file
-macro push  $ end // push item to stack, (strings/unsigned int)
-macro while / end // while loop
-macro back  @ end // send last item to back of the stack
-macro front ~ end // send back of the stack to front of the stack
-macro swap  ^ end // swaps last item and current item on stack
-macro add   + end // adds last item and current item, dropping both items and appending output to stack
-macro sub   - end // subtracts last item and current item, dropping both items and appending output to stack
-macro clear ; end // remove every item on stack
-macro dup   } end // append the last item on the stack to the stack
-macro over  # end // swap last item with item 2 blocks behind
-macro open  : end // open a file
+macro drop   ] end // drop last item on stack
+macro puts   [ end // print to file with file descriptor from open
+macro gets   { end // input from file
+macro dup    } end // append the last item on the stack to the stack
+macro push   $ end // push item to stack (strings/unsigned int)
+macro while  / end // while loop
+macro if     ? end // if statement
+macro back   @ end // send last item to back of the stack
+macro front  ~ end // send back of the stack to front of the stack
+macro swap   ^ end // swaps last item and current item on stack
+macro add    + end // adds last two values on the stack, dropping both items and appending output to stack
+macro sub    - end // subtracts last two values on the stack, dropping both items and appending output to stack
+macro mul    * end // multiplies last two values on the stack, dropping both items and appending output to stack
+macro divmod % end // appends value floor divided and remainder to stack
+macro clear  ; end // remove every item on stack
+macro throw  \ end // throw last string on stack as an exception
+macro flush  . end // flush output buffer to file
+macro open   : end // open a file
 
 // stdin, stdout, stderr
 macro stdin  0 end
 macro stdout 1 end
 macro stderr 2 end
 
-// pushes 0 to stack, can be used to achieve negative numbers, for example:
-// neg push 10 sub // will push -10 to stack, be careful printing strings/chars with negative numbers
-macro neg
-    push 0
-end
+// ansi escape codes
+macro ESC_CODE 27 end
+
+// swap last item with item 2 blocks behind
+macro over
+    back swap front swap back swap front end
+
+// send last item to 1st index of stack
+macro cback
+    front swap back back end
+
+// send 1st index to front of stack
+macro cfront
+    front front swap back end
+
+macro div
+    divmod drop end
+macro mod
+    divmod swap drop end
+
+// use after pushing a number to the stack
+// for example, push 1 neg will push -1 to the stack
+macro chsin
+    push 0 swap sub end
 
 // drop last string on stack
 macro pop
@@ -33,44 +56,105 @@ macro pop
     end drop
 end
 
-// gets open files
-macro readall  neg push 1 sub end // -1
-macro readline push 0 end // 0
+macro memmove
+    dup back if 0 > do
+        chsin while 0 < do
+            push 1-
+            cfront swap
+        end drop
+        push 0
+    end
 
-// all pang functions
-
-macro fprint   puts string    end
-macro fprinti  puts int drop  end
-macro fprintch puts char drop end
-
-// prints string with puts
-macro print
-    push stdout
-    fprint
+    while 0 < do
+        push 1-
+        swap cback
+    end drop front
 end
+
+// len2 s2 item s1 len+len2 
+macro concat
+    push "WIP" error
+    memmove dup back add
+end
+
+// gets open files
+macro readall 
+    push 1 chsin end // -1
+macro readline
+    push 0 end // 0
+
+macro fprinti
+    swap puts int drop flush end
+macro fprintc
+    swap puts char drop flush end
+
+// (fd, len, str, len)
+// (fd, len, str - 1, len - 1)
+// writes to file and retains length of string
+macro fwrite
+    // length
+    swap dup back
+
+    // file descriptor
+    swap back
+
+    while 0 < do
+        push 1- swap
+        puts char drop
+    end drop front flush front
+end
+
+macro fprint fwrite drop end
 
 // prints int with puts
 macro printi
-    push stdout
-    fprinti
-end
+    push stdout fprinti end
 
 // prints char with puts
-macro printch
-    push stdout
-    fprintch
-end
+macro printc
+    push stdout fprintc end
+
+// print newline character to stdout
+macro printlc
+    push 10 printc end
 
 // prints string with fprint to stdout
 macro print
-    push stdout
-    fprint
-end
+    push stdout fprint end
+
+// prints string with fwrite (retains length of string) to stdout
+macro printf
+    push stdout fwrite end
 
 // prints string with puts and newline
 macro println
-    print
-    push 10 // char for \n
-    push stdout
-    puts char drop
+    // str len
+    //memmove push 10 swap
+    //chsin memmove chsin push 1+
+    //print
+    print printlc
+end
+
+macro fgetln
+    readline swap gets end
+macro fgetc
+    push 1 swap gets end
+macro getc
+    push stdin fgetc end
+
+// macro rgb
+//     // [38;2;{r};{g};{b}m
+//     push ESC_CODE push 1 // sizeof ESC_CODE for concatenation
+//     push "[38;2;" concat
+// 
+//     memmove
+// 
+//     println printi printi printi
+// end
+
+// error printing
+macro error
+    push "[38;2;200;0;0mError: "
+    push ESC_CODE swap push 1+
+    print throw
 end

@@ -2,9 +2,9 @@ include "std.pang"
 
 clear
 
-readline
-push stdin
-gets
+readall
+open "test.txt"
+gets close
 
 push 10 printch
 

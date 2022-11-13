@@ -3,6 +3,7 @@ from enum import Enum, auto
 from typing import Union
 import sys
 import os
+from time import perf_counter
 
 gtch = True
 
@@ -13,6 +14,7 @@ except ImportError:
 
 class TokenType(Enum):
     ID = auto()
+    IF = auto()
     DO = auto()
     INT = auto()
     SUB = auto()
@@ -22,7 +24,6 @@ class TokenType(Enum):
     DUP = auto()
     PUSH = auto()
     SWAP = auto()
-    OVER = auto()
     DROP = auto()
     PUTS = auto()
     GETS = auto()
@@ -30,9 +31,13 @@ class TokenType(Enum):
     OPEN = auto()
     BACK = auto()
     FRONT = auto()
+    FLUSH = auto()
     WHILE = auto()
     MACRO = auto()
     CLEAR = auto()
+    THROW = auto()
+    DIVMOD = auto()
+    MULTIPLY = auto()
     CONDITION = auto()
 
 @dataclass
@@ -44,12 +49,15 @@ class Token():
 T_READLINE = 0
 T_READALL = -1
 
+o_buf = ""
+
 class Lexer():
     def __init__(self, src) -> None:
         self.index = 0
         self.raw = src
         self.size = len(src)
         self.toks: list[Token] = []
+        self.includes: list[str] = []
 
     def _get(self) -> str:
         """ Returns current value and index++ """
@@ -78,6 +86,15 @@ class Lexer():
             raw += self._get()
 
         self.toks.append(Token(TokenType.INT, int(raw), start))
+    
+    #def ptr(self) -> None:
+    #    start = self.index
+    #    raw = self._get()
+    #
+    #    while self._peek() and self._peek() in "1234567890":
+    #        raw += self._get()
+    #    
+    #    self.toks.append(Token(TokenType.PTR, raw, start))
 
     def string(self) -> None:
         start = self.index
@@ -128,8 +145,15 @@ class Lexer():
         # Add 1 to index to skip \"\' character
         self.index += 1
 
+        # skip as has already been included
+        if include_filename in self.includes:
+            return
+
         new_toks = Lexer(open(include_filename, "r", encoding="utf-8").read())
+        new_toks.includes = self.includes
         new_toks.get_tokens_without_macros()
+
+        self.includes.append(include_filename)
 
         for tok in new_toks.toks:
             self.toks.append(tok)
@@ -144,7 +168,7 @@ class Lexer():
             if not self._get():
                 break
         
-        if raw in ("int", "char", "string"):
+        if raw in ("int", "char"):
             self.toks.append(Token(TokenType.TYPE, raw, start))
         elif raw == "macro":
             self.toks.append(Token(TokenType.MACRO, raw, start))
@@ -176,6 +200,10 @@ class Lexer():
                 self.atom(TokenType.ADD)
             elif current == "-":
                 self.atom(TokenType.SUB)
+            elif current == "*":
+                self.atom(TokenType.MULTIPLY)
+            elif current == "%":
+                self.atom(TokenType.DIVMOD)
             elif current == "^":
                 self.atom(TokenType.SWAP)
             elif current == "$":
@@ -186,6 +214,8 @@ class Lexer():
                 self.atom(TokenType.DROP)
             elif current == "/":
                 self.comment_or_while()
+            #elif current == "&":
+            #    self.ptr()
             elif current == ";":
                 self.atom(TokenType.CLEAR)
             elif current == ":":
@@ -194,14 +224,16 @@ class Lexer():
                 self.atom(TokenType.GETS)
             elif current == "}":
                 self.atom(TokenType.DUP)
-            elif current == "#":
-                self.atom(TokenType.OVER)
             elif current == "@":
                 self.atom(TokenType.BACK)
             elif current == "~":
                 self.atom(TokenType.FRONT)
-            #elif current == "?":
-            #    self.atom(TokenType.IF)
+            elif current == ".":
+                self.atom(TokenType.FLUSH)
+            elif current == "?":
+                self.atom(TokenType.IF)
+            elif current == "\\":
+                self.atom(TokenType.THROW)
             elif current in "\"\'":
                 self.string()
             elif current in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
@@ -216,7 +248,6 @@ class Lexer():
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
 
-
         macro_added_toks = []
         macro = False
         macro_name = False
@@ -227,7 +258,7 @@ class Lexer():
 
         # Add macros
         for tok in self.toks:
-            if tok.typ in (TokenType.DO, ):
+            if tok.typ == TokenType.DO:
                 skip_end += 1
             
             if tok.typ == TokenType.MACRO:
@@ -269,7 +300,7 @@ class Lexer():
         for tok in self.toks:
 
             if skip_macro:
-                if tok.typ in (TokenType.DO, ):
+                if tok.typ == TokenType.DO:
                     skip_end += 1
                 elif tok.typ == TokenType.END and not skip_end:
                     skip_macro = False
@@ -289,19 +320,16 @@ class Lexer():
         
         self.toks = macro_added_toks
 
-def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Token, condition: Token) -> tuple[list[int], int]:
+def simulate_if(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Token, condition: Token) -> tuple[list[int], int]:
     skip = 0
     index = start + 1
-    editing_stack = True
 
-    if stack[-1] != condition and compare_typ == "=":
-        editing_stack = False
-    if stack[-1] == condition and compare_typ == "!":
-        editing_stack = False
-    if stack[-1] > condition - 1 and compare_typ == ">":
-        editing_stack = False
-    if stack[-1] < condition + 1 and compare_typ == "<":
-        editing_stack = False
+    equal = condition != stack[-1] and compare_typ == "!"
+    not_equal = condition == stack[-1] and compare_typ == "="
+    gt = condition - 1 > stack[-1] and compare_typ == ">"
+    st = condition + 1 < stack[-1] and compare_typ == "<"
+
+    editing_stack = any([not_equal, equal, gt, st])
 
     skip_next_end = 0
 
@@ -309,6 +337,48 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compar
         tok = tok_stream[index]
 
         if skip:
+            index += 1
+            skip -= 1
+            continue
+
+        if tok.typ == TokenType.DO and not editing_stack:
+            skip_next_end += 1
+            index += 1
+            continue
+
+        if tok.typ == TokenType.END:
+            if skip_next_end:
+                skip_next_end -= 1
+                index += 1
+                continue
+
+            break
+
+        if editing_stack:
+            stack, skip = simulate_token(stack, tok_stream, index)
+
+        index += 1
+    
+    return stack, index - start
+
+def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Union[str, int], condition: Union[str, int]) -> tuple[list[int], int]:
+    skip = 0
+    index = start + 1
+
+    equal = condition != stack[-1] and compare_typ == "!"
+    not_equal = condition == stack[-1] and compare_typ == "="
+    gt = condition - 1 > stack[-1] and compare_typ == ">"
+    st = condition + 1 < stack[-1] and compare_typ == "<"
+
+    editing_stack = any([not_equal, equal, gt, st])
+
+    skip_next_end = 0
+
+    while True:
+        tok = tok_stream[index]
+
+        if skip:
+            index += 1
             skip -= 1
             continue
 
@@ -343,8 +413,11 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compar
     return stack, index - start
 
 def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
+    global o_buf
+
     tok = tok_stream[start]
     skip = 0
+    #print(stack, tok.typ) # for debugging
     
     if tok.typ == TokenType.PUSH:
         new_tok = tok_stream[start + 1]
@@ -362,55 +435,42 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
 
         stack.append(new_tok.raw)
         skip += 1
-    elif tok.typ == TokenType.PUTS:
+    elif tok.typ == TokenType.FLUSH:
         stream = stack.pop()
 
         # stdin is read-only
-        if stream == 0:
+        if not stream:
             assert False, "stream STDIN is read-only"
-
+        
+        if stream not in (1, 2):
+            os.ftruncate(stream, 0)
+            os.lseek(stream, 0, os.SEEK_SET)
+            os.write(stream, bytes(o_buf, encoding="utf-8"))
+        elif stream == 1:
+            sys.stdout.write(o_buf)
+        elif stream == 2:
+            sys.stderr.write(o_buf)
+        
+        o_buf = ""
+    elif tok.typ == TokenType.PUTS:
         new_tok = tok_stream[start + 1]
 
         if new_tok.typ != TokenType.TYPE:
             assert False, "Must be a valid data type: %s:%d" % (new_tok.raw, new_tok.ind)
         
-        if stream not in (1, 2):
-            if new_tok.raw == "char":
-                os.write(stream, bytes(chr(stack[-1]), encoding="utf-8"))
-            elif new_tok.raw == "int":
-                os.write(stream, bytes(str(stack[-1]), encoding="utf-8"))
-            elif new_tok.raw == "string":
-                for _ in range(stack.pop()):
-                    os.write(stream, bytes(chr(stack.pop()), encoding="utf-8"))
-            else:
-                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
-            os.close(stream)
-        elif stream == 1:
-            if new_tok.raw == "char":
-                sys.stdout.write(chr(stack[-1]))
-            elif new_tok.raw == "int":
-                sys.stdout.write(str(stack[-1]))
-            elif new_tok.raw == "string":
-                for _ in range(stack.pop()):
-                    sys.stdout.write(chr(stack.pop()))
-            else:
-                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
-        elif stream == 2:
-            if new_tok.raw == "char":
-                sys.stderr.write(chr(stack[-1]))
-            elif new_tok.raw == "int":
-                sys.stderr.write(str(stack[-1]))
-            elif new_tok.raw == "string":
-                for _ in range(stack.pop()):
-                    sys.stderr.write(chr(stack.pop()))
-            else:
-                assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+        if new_tok.raw == "char":
+            o_buf += chr(stack[-1])
+        elif new_tok.raw == "int":
+            o_buf += str(stack[-1])
+        else:
+            assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+    
         skip += 1
     elif tok.typ == TokenType.GETS:
         stream = stack.pop()
         read_typ = stack.pop()
         
-        if stream == 0:
+        if not stream:
             if read_typ == T_READLINE:
                 inp = input()
                 for ch in inp[::-1]:
@@ -454,22 +514,23 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
                 assert False, "Invalid read type"
             os.close(stream)
     elif tok.typ == TokenType.DO:
-        loop = tok_stream[start - 3]
+        typ = tok_stream[start - 3]
         condition = tok_stream[start - 2].raw
         compare_typ = tok_stream[start - 1].raw
 
-        if loop.typ in (TokenType.WHILE, ):
+        if typ.typ == TokenType.WHILE:
             stack, skip = simulate_while(stack, tok_stream, start, compare_typ, condition)
+        elif typ.typ == TokenType.IF:
+            stack, skip = simulate_if(stack, tok_stream, start, compare_typ, condition)
         else:
             assert False, "Not implemented"
+    elif tok.typ == TokenType.THROW:
+        for _ in range(stack.pop()):
+            sys.stdout.write(chr(stack.pop()))
+        sys.stdout.write("\u001b[0m")
+        exit(1)
     elif tok.typ == TokenType.DUP:
         stack.append(stack[-1])
-    elif tok.typ == TokenType.OVER:
-        if len(stack) < 3:
-            
-            assert False, "Not enough items for intrinsic OVER"
-            
-        stack[-3], stack[-1] = stack[-1], stack[-3]
     elif tok.typ == TokenType.OPEN:
         file_tok = tok_stream[start + 1]
 
@@ -482,6 +543,7 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
             # create file
             open(file_tok.raw, "x")
             file_descriptor = os.open(file_tok.raw, os.O_RDWR)
+        
         stack.append(file_descriptor)
         skip += 1
     elif tok.typ == TokenType.DROP:
@@ -503,12 +565,24 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         if len(stack) < 2:
             assert False, "Not enough values on stack to add: %s:%d" % (tok.raw, tok.ind)
 
-        stack.append(stack.pop(-2) + stack.pop(-1))
+        stack.append(stack.pop(-2) + stack.pop())
     elif tok.typ == TokenType.SUB:
         if len(stack) < 2:
             assert False, "Not enough values on stack to sub: %s:%d" % (tok.raw, tok.ind)
 
-        stack.append(stack.pop(-2) - stack.pop(-1))
+        stack.append(stack.pop(-2) - stack.pop())
+    elif tok.typ == TokenType.MULTIPLY:
+        if len(stack) < 2:
+            assert False, "Not enough values on stack to multiply: %s:%d" % (tok.raw, tok.ind)
+        
+        stack.append(stack.pop(-2) * stack.pop())
+    elif tok.typ == TokenType.DIVMOD:
+        if len(stack) < 2:
+            assert False, "Not enough values on stack to divmod: %s:%d" % (tok.raw, tok.ind)
+
+        div, mod = divmod(stack.pop(-2), stack.pop())
+        stack.append(div)
+        stack.append(mod)
     elif tok.typ == TokenType.CLEAR:
         stack = []
     
@@ -534,6 +608,7 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
         stack, skip = simulate_token(stack, tok_stream, ind)
 
     if len(stack) > 0:
+        print(stack)
         assert False, "Must drop all items on stack"
 
 def compile_tokens(tok_stream: list[Token]) -> str:
@@ -546,9 +621,9 @@ def compile_tokens(tok_stream: list[Token]) -> str:
         else:
             out += str(tok.raw)
     
-    return out
+    return out 
 
-def run_program():
+def run_program() -> None:
     arg_st = False
     args = []
     
@@ -566,8 +641,11 @@ def run_program():
     lex_src = Lexer(src)
     lex_src.get_tokens()
 
-    simulate_tokens(args[::-1], lex_src.toks)
     #print(compile_tokens(lex_src.toks))
+
+    st = perf_counter()
+    simulate_tokens(args[::-1], lex_src.toks)
+    print(f"Program finished in {perf_counter() - st} seconds.")
 
 if __name__ == "__main__":
     run_program()

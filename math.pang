@@ -1,0 +1,64 @@
+// standard math library
+include "std.pang"
+
+// TODO: implement negative powers
+macro power
+    swap if 0 > do
+        push "Not implemented"
+        error // raise error
+    end swap
+
+    if 0 = do
+        drop
+        // check if number is not 0
+        if 0 = do
+            push "0**0 cannot be expressed"
+            error // raise error
+        end drop
+        push 1
+        push 0
+    end
+
+    if 1 = do
+        drop push 0
+    end
+
+    if 2 = do
+        drop dup mul
+        push 0
+    end
+
+    if 1 < do
+        // add original to 2nd place on stack
+        dup back
+        //dup printi swap dup printi swap
+        while 1 < do
+            push 1- back
+            dup front
+        end drop front
+
+        while 1 < do
+            push 1- back
+            mul front
+        end drop
+
+        // push 0 so that last value gets dropped
+        push 0
+    end drop
+end
+
+// offset all chars in a string by n amount (not working)
+macro offset_string
+    push "WIP" error
+    back // offset (n)
+
+    dup back while 0 < do
+        // len n str len-1 item1+n
+        push 1- swap
+        cfront dup over+ cback cback
+    end drop front
+
+    dup back while 0 < do
+        push 1- cfront swap
+    end drop front cfront drop
+end

@@ -1,0 +1,5 @@
+include "std.pang"
+
+drop concat swap
+back swap back
+swap back println

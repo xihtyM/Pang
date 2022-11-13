@@ -8,11 +8,12 @@ clear
 macro fib
     push 0
     push 1 over
+    
     while 0 < do
         push 1- over
         dup over+ over
     end drop drop
 end
 
-push 2000 fib
-printi
+push 11
+fib printi
