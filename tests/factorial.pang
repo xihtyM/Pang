@@ -1,0 +1,22 @@
+include "std.pang"
+
+macro factorial
+    if 0 < do
+        push 0 swap end
+    if 0 > do
+        push 1 swap chsin end
+    
+    if 0 = do push 0 end
+
+    dup while 1 < do
+        push 1- dup
+        back mul front
+    end drop swap
+
+    if 1 = do swap chsin swap end drop
+    if 0 = do drop push 1 end
+end
+
+clear
+
+push 20000 factorial printi printlc

@@ -12,6 +12,9 @@ try:
 except ImportError:
     gtch = False
 
+class ErrorType(Enum):
+    Syntax = auto()
+    Command = auto()
 class TokenType(Enum):
     ID = auto()
     IF = auto()
@@ -37,6 +40,7 @@ class TokenType(Enum):
     CLEAR = auto()
     THROW = auto()
     DIVMOD = auto()
+    SYSCALL = auto()
     MULTIPLY = auto()
     CONDITION = auto()
 
@@ -51,9 +55,17 @@ T_READALL = -1
 
 o_buf = ""
 
+def Croak(err_typ: ErrorType, msg: str):
+    if err_typ == ErrorType.Syntax:
+        print("SyntaxError: %s" % msg)
+    elif err_typ == ErrorType.Command:
+        print("CommandError: %s" % msg)
+    exit(1)
+
 class Lexer():
-    def __init__(self, src) -> None:
+    def __init__(self, src: str, filename: str = "N/A") -> None:
         self.index = 0
+        self.fn = filename
         self.raw = src
         self.size = len(src)
         self.toks: list[Token] = []
@@ -96,23 +108,54 @@ class Lexer():
     #    
     #    self.toks.append(Token(TokenType.PTR, raw, start))
 
+    def raw_string(self) -> None:
+        start = self.index
+        raw = ""
+
+        # Add 1 to index to skip \' character
+        self.index += 1
+
+        while self._peek() != "\'":
+            raw += self._peek()
+
+            if not self._get():
+                Croak(
+                    ErrorType.Syntax,
+                    "unterminated string literal in file \"%s\" (detected at line: %d)" % (
+                        self.fn, 1 + self.raw[:start].count("\n")
+                    )
+                )
+
+        # Add 1 to index to skip \' character
+        self.index += 1
+
+        self.toks.append(Token(TokenType.STR, raw, start))
+
     def string(self) -> None:
         start = self.index
         raw = ""
 
-        # Add 1 to index to skip \"\' character
+        # Add 1 to index to skip \" character
         self.index += 1
 
-        while self._peek() not in "\"\'":
+        while self._peek() != "\"":
             raw += self._peek()
 
             if not self._get():
-                assert False, "EOF literal without terminating string: %s:%d" % (raw, self.index)
+                Croak(
+                    ErrorType.Syntax,
+                    "unterminated string literal in file \"%s\" (detected at line: %d)" % (
+                        self.fn, 1 + self.raw[:start].count("\n")
+                    )
+                )
+            
+            if self._peek() == "\"" and not raw.endswith("\\\\") and raw[-1] == "\\":
+                raw += self._get()
 
-        # Add 1 to index to skip \"\' character
+        # Add 1 to index to skip \" character
         self.index += 1
 
-        self.toks.append(Token(TokenType.STR, raw, start))
+        self.toks.append(Token(TokenType.STR, raw.encode("utf-8").decode("unicode_escape"), start))
 
     def comment_or_while(self) -> None:
         start = self.index
@@ -122,6 +165,13 @@ class Lexer():
             while self._peek() != "\n":
                 if not self._get():
                     break
+            return
+        elif self._peek() == "*":
+            self.index += 1
+            while self._peek():
+                if self._get() + self._peek() == "*/":
+                    break
+            self.index += 1
             return
         
         self.toks.append(Token(TokenType.WHILE, "/", start))
@@ -149,14 +199,13 @@ class Lexer():
         if include_filename in self.includes:
             return
 
-        new_toks = Lexer(open(include_filename, "r", encoding="utf-8").read())
+        new_toks = Lexer(open(include_filename, "r", encoding="utf-8").read(), include_filename)
         new_toks.includes = self.includes
         new_toks.get_tokens_without_macros()
 
         self.includes.append(include_filename)
 
-        for tok in new_toks.toks:
-            self.toks.append(tok)
+        self.toks += new_toks.toks
 
     def identifier(self) -> None:
         start = self.index
@@ -214,8 +263,8 @@ class Lexer():
                 self.atom(TokenType.DROP)
             elif current == "/":
                 self.comment_or_while()
-            #elif current == "&":
-            #    self.ptr()
+            elif current == "&":
+                self.atom(TokenType.SYSCALL) # TODO: IMPLEMENT SYSCALLS
             elif current == ";":
                 self.atom(TokenType.CLEAR)
             elif current == ":":
@@ -234,8 +283,10 @@ class Lexer():
                 self.atom(TokenType.IF)
             elif current == "\\":
                 self.atom(TokenType.THROW)
-            elif current in "\"\'":
+            elif current == "\"":
                 self.string()
+            elif current == "\'":
+                self.raw_string()
             elif current in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 self.identifier()
             elif current in "1234567890":
@@ -290,7 +341,11 @@ class Lexer():
                 if tok.typ != TokenType.ID:
                     cur_toks.append(tok)
                 else:
-                    for macro_tok in macros[tok.raw]:
+                    # print(tok.raw) # open(self.includes[0], "r", encoding="utf-8").read().count("\n", 0, tok.ind))
+                    if tok.raw not in macros:
+                        assert False, "Undefined reference to identifier: %s" % tok.raw
+                    
+                    for macro_tok in macros[tok.raw]:#[0]:
                         cur_toks.append(macro_tok)
         
         keys = macros.keys()
@@ -298,7 +353,6 @@ class Lexer():
         skip_end = 0
 
         for tok in self.toks:
-
             if skip_macro:
                 if tok.typ == TokenType.DO:
                     skip_end += 1
@@ -309,7 +363,10 @@ class Lexer():
                 
                 continue
                 
-            if tok.raw in keys and tok.typ == TokenType.ID:
+            if tok.typ == TokenType.ID:
+                if not tok.raw in keys:
+                    assert False, "Undefined reference to identifier: %s" % tok.raw
+
                 for macro_tok in macros[tok.raw]:
                     macro_added_toks.append(macro_tok)
             elif tok.typ == TokenType.MACRO:
@@ -320,14 +377,15 @@ class Lexer():
         
         self.toks = macro_added_toks
 
-def simulate_if(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Token, condition: Token) -> tuple[list[int], int]:
+def simulate_if(stack: list[int], tok_stream: list[Token], start: int, compare_typ: str, condition: Union[str, int]) -> tuple[list[int], int]:
     skip = 0
     index = start + 1
 
-    equal = condition != stack[-1] and compare_typ == "!"
-    not_equal = condition == stack[-1] and compare_typ == "="
-    gt = condition - 1 > stack[-1] and compare_typ == ">"
-    st = condition + 1 < stack[-1] and compare_typ == "<"
+    if type(condition) == int:
+        equal = condition != stack[-1] and compare_typ == "!"
+        not_equal = condition == stack[-1] and compare_typ == "="
+        gt = condition - 1 > stack[-1] and compare_typ == ">"
+        st = condition + 1 < stack[-1] and compare_typ == "<"
 
     editing_stack = any([not_equal, equal, gt, st])
 
@@ -361,14 +419,15 @@ def simulate_if(stack: list[int], tok_stream: list[Token], start: int, compare_t
     
     return stack, index - start
 
-def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compare_typ: Union[str, int], condition: Union[str, int]) -> tuple[list[int], int]:
+def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compare_typ: str, condition: Union[str, int]) -> tuple[list[int], int]:
     skip = 0
     index = start + 1
 
-    equal = condition != stack[-1] and compare_typ == "!"
-    not_equal = condition == stack[-1] and compare_typ == "="
-    gt = condition - 1 > stack[-1] and compare_typ == ">"
-    st = condition + 1 < stack[-1] and compare_typ == "<"
+    if type(condition) == int:
+        equal = condition != stack[-1] and compare_typ == "!"
+        not_equal = condition == stack[-1] and compare_typ == "="
+        gt = condition - 1 > stack[-1] and compare_typ == ">"
+        st = condition + 1 < stack[-1] and compare_typ == "<"
 
     editing_stack = any([not_equal, equal, gt, st])
 
@@ -415,7 +474,9 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compar
 def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
     global o_buf
 
+
     tok = tok_stream[start]
+    
     skip = 0
     #print(stack, tok.typ) # for debugging
     
@@ -423,7 +484,7 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         new_tok = tok_stream[start + 1]
 
         if new_tok.typ not in (TokenType.INT, TokenType.STR):
-            assert False, "Incorrect data type at index %d" % new_tok.ind
+            Croak(ErrorType.Syntax, "incorrect data type for push")
 
         if new_tok.typ == TokenType.STR:
             for ch in new_tok.raw[::-1]:
@@ -532,20 +593,18 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
     elif tok.typ == TokenType.DUP:
         stack.append(stack[-1])
     elif tok.typ == TokenType.OPEN:
-        file_tok = tok_stream[start + 1]
-
-        if file_tok.typ != TokenType.STR:
-            assert False, "Must be a valid string: %s:%d" % (file_tok.raw, file_tok.ind)
+        file = ""
+        for _ in range(stack.pop()):
+            file = file + chr(stack.pop())
         
         try:
-            file_descriptor = os.open(file_tok.raw, os.O_RDWR)
+            file_descriptor = os.open(file, os.O_RDWR)
         except FileNotFoundError:
             # create file
-            open(file_tok.raw, "x")
-            file_descriptor = os.open(file_tok.raw, os.O_RDWR)
+            open(file, "x")
+            file_descriptor = os.open(file, os.O_RDWR)
         
         stack.append(file_descriptor)
-        skip += 1
     elif tok.typ == TokenType.DROP:
         if len(stack) == 0:
             assert False, "Not enough values on stack to drop: %s:%d" % (tok.raw, tok.ind)
@@ -555,8 +614,7 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         if len(stack) < 2:
             assert False, "Not enough values on stack to swap: %s:%d" % (tok.raw, tok.ind)
 
-        stack.append(stack.pop(-2))
-        stack.append(stack.pop(-1))
+        stack[-1], stack[-2] = stack[-2], stack[-1]
     elif tok.typ == TokenType.BACK:
         stack.insert(0, stack.pop())
     elif tok.typ == TokenType.FRONT:
@@ -580,15 +638,15 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         if len(stack) < 2:
             assert False, "Not enough values on stack to divmod: %s:%d" % (tok.raw, tok.ind)
 
-        div, mod = divmod(stack.pop(-2), stack.pop())
-        stack.append(div)
-        stack.append(mod)
+        stack += divmod(stack.pop(-2), stack.pop())
     elif tok.typ == TokenType.CLEAR:
         stack = []
+    #else:
+    #    assert False, "Not implemented"
     
     return stack, skip
 
-def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
+def simulate_tokens(args: list[str], tok_stream: list[Token]) -> None:
     stack = []
 
     for arg in args:
@@ -611,7 +669,7 @@ def simulate_tokens(args: list, tok_stream: list[Token]) -> None:
         print(stack)
         assert False, "Must drop all items on stack"
 
-def compile_tokens(tok_stream: list[Token]) -> str:
+def unmacro_tokens(tok_stream: list[Token]) -> str:
     """ Expands macros etc """
 
     out = ""
@@ -623,29 +681,353 @@ def compile_tokens(tok_stream: list[Token]) -> str:
     
     return out 
 
+def find_end(start: int, tok_stream: list[Token]) -> int:
+    skip_next_end = 0
+
+    for ind, tok in enumerate(tok_stream[start + 1:]):
+        if tok.typ == TokenType.DO:
+            skip_next_end += 1
+        elif tok.typ == TokenType.END:
+            if skip_next_end:
+                skip_next_end -= 1
+                continue
+            return ind
+    Croak(ErrorType.Syntax, "no end found")
+
+
+def compile_tokens(tok_stream: list[Token]) -> str:
+    """ Compiles to native binary """
+
+    skip = 0
+    curly_end = 0
+    no_args = False
+    flush = False
+
+    out = ""
+
+    for ind, tok in enumerate(tok_stream):
+        if skip:
+            skip -= 1
+            continue
+        if curly_end:
+            curly_end -= 1
+            if not curly_end:
+                out += " }"
+
+        if tok.typ == TokenType.PUSH:
+            new_tok = tok_stream[ind + 1]
+            skip += 1
+
+            if new_tok.typ not in (TokenType.INT, TokenType.STR):
+                Croak(ErrorType.Syntax, "incorrect data type for push")
+            
+            if new_tok.typ == TokenType.INT:
+                out += " PUSH(%d)" % new_tok.raw
+            else:
+                for ch in new_tok.raw[::-1]:
+                    out += " PUSH(%d)" % ord(ch)
+                out += " PUSH(%d)" % len(new_tok.raw)
+        elif tok.typ == TokenType.FLUSH:
+            out += " _FLUSH_(&p_vars);"
+            flush = True
+        elif tok.typ == TokenType.GETS:
+            out += " _READ_(&p_vars);"
+        elif tok.typ == TokenType.PUTS:
+            new_tok = tok_stream[ind + 1]
+            skip += 1
+
+            if new_tok.typ != TokenType.TYPE:
+                Croak(ErrorType.Syntax, "incorrect data type for puts")
+            
+            if new_tok.raw == "char":
+                out += " PCHR"
+            else:
+                out += " PINT"
+        elif tok.typ == TokenType.SWAP:
+            out += " SWAP"
+        elif tok.typ == TokenType.DROP:
+            out += " DROP"
+        elif tok.typ == TokenType.ADD:
+            out += " ADD"
+        elif tok.typ == TokenType.SUB:
+            out += " SUB"
+        elif tok.typ == TokenType.MULTIPLY:
+            out += " MUL"
+        elif tok.typ == TokenType.DIVMOD:
+            out += " DMD"
+        elif tok.typ == TokenType.BACK:
+            out += " BACK"
+        elif tok.typ == TokenType.FRONT:
+            out += " FRONT"
+        elif tok.typ == TokenType.DUP:
+            out += " DUP"
+        elif tok.typ == TokenType.OPEN:
+            out += " FD_FETCH(&p_vars);"
+        elif tok.typ == TokenType.CLEAR:
+            if not ind:
+                no_args = True
+                continue
+            out += " p_vars.stack.clear();"
+        elif tok.typ == TokenType.DO:
+            curly_end = find_end(ind, tok_stream)
+
+            if tok_stream[ind - 1].raw in ("!", "="):
+                tok_stream[ind - 1].raw += "="
+            
+            if tok_stream[ind - 3].typ == TokenType.WHILE:
+                out += " while (%s %s p_vars.stack.back()) {" % (str(tok_stream[ind - 2].raw), tok_stream[ind - 1].raw)
+            elif tok_stream[ind - 3].typ == TokenType.IF:
+                out += " if (%s %s p_vars.stack.back()) {" % (str(tok_stream[ind - 2].raw), tok_stream[ind - 1].raw)
+
+    # boilerplate code
+    start = "#include <stdio.h>\n"
+    start += "#include <conio.h>\n\n"
+    start += "#include <iostream>\n"
+    start += "#include <fstream>\n"
+    start += "#include <string>\n"
+    start += "#include <vector>\n\n"
+    start += "#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)\n"
+    start += "#define ON_WINDOWS\n"
+    start += "#include <locale.h>\n"
+    start += "#endif\n"
+    start += "\n"
+    start += "#define T_READLINE 0\n"
+    start += "#define T_READALL -1\n"
+    start += "\n"
+    start += "typedef struct PangVars {\n"
+    start += "    std::vector<std::string> files;\n"
+    start += "    std::vector<int64_t> stack;\n"
+    start += "    std::string o_buf;\n"
+    start += "} PangVars;\n"
+    start += "\n"
+    start += "template<typename T> T pop(std::vector<T> *stack, int64_t index = -1) {\n"
+    start += "    T value;\n"
+    start += "\n"
+    start += "    if (index >= 0) {\n"
+    start += "        value = stack->at(index);\n"
+    start += "        stack->erase(stack->begin() + index);\n"
+    start += "    } else {\n"
+    start += "        value = stack->at(stack->size() + index);\n"
+    start += "        stack->erase(stack->end() + index);\n"
+    start += "    }\n"
+    start += "\n"
+    start += "    return value;\n"
+    start += "}\n"
+    start += "\n"
+    start += "template<typename T> void divmod(std::vector<T> *stack) {\n"
+    start += "    T denominator = pop(stack);\n"
+    start += "    T numerator = pop(stack);\n"
+    start += "\n"
+    start += "    std::lldiv_t result = std::lldiv(numerator, denominator);\n"
+    start += "\n"
+    start += "    stack->push_back(result.quot);\n"
+    start += "    stack->push_back(result.rem);\n"
+    start += "}\n"
+    start += "\n"
+    start += "void FD_FETCH(PangVars *p_vars) {\n"
+    start += "    std::vector<int64_t> *stack = &p_vars->stack;\n"
+    start += "    std::vector<std::string> *files = &p_vars->files;\n"
+    start += "    \n"
+    start += "    std::string filename = \"\";\n"
+    start += "\n"
+    start += "    while (0 < stack->back()) {\n"
+    start += "        stack->at(stack->size() - 1) -= 1;\n"
+    start += "        filename += std::string(1, pop(stack, -2));\n"
+    start += "    } stack->at(stack->size() - 1) = files->size() + 3; // +3 to skip stdin stdout stderr\n"
+    start += "\n"
+    start += "    files->push_back(filename);\n"
+    start += "}\n"
+    start += "\n"
+
+    start += "void _READ_(PangVars *p_vars) {\n"
+    start += "    std::vector<std::string> *files = &p_vars->files;\n"
+    start += "    std::vector<int64_t> *stack = &p_vars->stack;\n"
+    start += "\n"
+    start += "    int64_t stream = pop(stack);\n"
+    start += "    int64_t read_typ = pop(stack);\n"
+    start += "\n"
+    start += "    if (!stream) {\n"
+    start += "        if (read_typ == T_READLINE) {\n"
+    start += "            std::string ln;\n"
+    start += "            std::getline(std::cin, ln);\n"
+    start += "            ln = std::string(ln.rbegin(), ln.rend());\n"
+    start += "\n"
+    start += "            for (auto ch: ln) { stack->push_back(ch); }\n"
+    start += "            stack->push_back(ln.size());\n"
+    start += "        } else if (read_typ < 0) {\n"
+    start += "            std::cerr << \"Error: cannot read negative bytes from stdin\\n\";\n"
+    start += "            exit(1);\n"
+    start += "        } else {\n"
+    start += "            std::string bytes = \"\";\n"
+    start += "            int64_t save = read_typ;\n"
+    start += "\n"
+    start += "            for (; save < 0; save--) {\n"
+    start += "                bytes = bytes + std::string(1, getche());\n"
+    start += "            }\n"
+    start += "            \n"
+    start += "            for (auto ch: bytes) { stack->push_back(ch); }\n"
+    start += "            stack->push_back(read_typ);\n"
+    start += "        }\n"
+    start += "    } else {\n"
+    start += "        std::ifstream is(files->at(stream - 3), std::ifstream::binary);\n"
+    start += "\n"
+    start += "        if (read_typ == T_READLINE) {\n"
+    start += "            std::string ln;\n"
+    start += "            std::getline(is, ln);\n"
+    start += "\n"
+    start += "            ln = std::string(ln.rbegin(), ln.rend());\n"
+    start += "            for (auto ch: ln) { stack->push_back(ch); }\n"
+    start += "            stack->push_back(ln.length());\n"
+    start += "        } else {\n"
+    start += "            is.seekg(0, is.end);\n"
+    start += "            size_t length = is.tellg();\n"
+    start += "            is.seekg(0, is.beg);\n"
+    start += "\n"
+    start += "            if ((uint64_t) read_typ < length && read_typ != T_READALL) {\n"
+    start += "                length = read_typ;\n"
+    start += "            }\n"
+    start += "\n"
+    start += "            char *buf = new char[length];\n"
+    start += "\n"
+    start += "            is.read(buf, length);\n"
+    start += "\n"
+    start += "            if (!is) {\n"
+    start += "                std::cerr << \"Error: could not read from file: \" << files->at(stream - 3) << \'\\n\';\n"
+    start += "                exit(1);\n"
+    start += "            }\n"
+    start += "\n"
+    start += "            std::string sbuf(buf);\n"
+    start += "            sbuf = std::string(sbuf.rbegin(), sbuf.rend());\n"
+    start += "\n"
+    start += "            for (auto ch: sbuf) { stack->push_back(ch); }\n"
+    start += "            stack->push_back(length);\n"
+    start += "\n"
+    start += "            delete[] buf;\n"
+    start += "        }\n"
+    start += "\n"
+    start += "        is.close();\n"
+    start += "    }\n"
+    start += "}\n"
+    start += "\n"
+    
+    if flush:
+        start += "void _FLUSH_(PangVars *p_vars) {\n"
+        start += "    std::vector<std::string> *files = &p_vars->files;\n"
+        start += "    std::vector<int64_t> *stack = &p_vars->stack;\n"
+        start += "    std::string *o_buf = &p_vars->o_buf;\n"
+        start += "\n"
+        start += "    int64_t stream = pop(stack);\n"
+        start += "\n"
+        start += "    if (!stream) {\n"
+        start += "        throw \"stream STDIN is read-only\";\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    switch (stream) {\n"
+        start += "        case 1:\n"
+        start += "            std::cout << *o_buf;\n"
+        start += "            break;\n"
+        start += "        case 2:\n"
+        start += "            std::cerr << *o_buf;\n"
+        start += "            break;\n"
+        start += "        default: {\n"
+        start += "            fclose(fopen(files->at(stream - 3).c_str(), \"w\"));\n"
+        start += "            FILE *fd = fopen(files->at(stream - 3).c_str(), \"w\");\n"
+        start += "\n"
+        start += "            if (fd == NULL) {\n"
+        start += "                std::cerr << \"Error: bad filename: \" << files->at(stream) << '\\n';\n"
+        start += "                exit(1);\n"
+        start += "            }\n"
+        start += "\n"
+        start += "            fwrite(o_buf->c_str(), 1, o_buf->length(), fd);\n"
+        start += "\n"
+        start += "            fclose(fd);\n"
+        start += "\n"
+        start += "            files->resize(files->size() - 1);\n"
+        start += "        }\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    o_buf->clear();\n"
+        start += "}\n"
+        start += "\n"
+
+    start += "#define PUSH(i) p_vars.stack.push_back(i);\n"
+    start += "#define DUP p_vars.stack.push_back(p_vars.stack.back());\n"
+    start += "#define DROP p_vars.stack.pop_back();\n"
+    start += "#define PINT p_vars.o_buf += std::to_string(p_vars.stack.back());\n"
+    start += "#define PCHR p_vars.o_buf += std::string(1, p_vars.stack.back());\n"
+    start += "#define SWAP std::iter_swap(p_vars.stack.end() - 2, p_vars.stack.end() - 1);\n"
+    start += "#define BACK p_vars.stack.insert(p_vars.stack.begin(), pop(&p_vars.stack));\n"
+    start += "#define FRONT p_vars.stack.push_back(p_vars.stack.at(0)); p_vars.stack.erase(p_vars.stack.begin());\n"
+    start += "\n"
+    start += "/* Simple arithmetic */\n"
+    start += "#define ADD p_vars.stack.push_back(pop(&p_vars.stack) + pop(&p_vars.stack));\n"
+    start += "#define SUB SWAP p_vars.stack.push_back(pop(&p_vars.stack) - pop(&p_vars.stack));\n"
+    start += "#define MUL p_vars.stack.push_back(pop(&p_vars.stack) * pop(&p_vars.stack));\n"
+    start += "#define DMD divmod(&p_vars.stack);\n"
+    start += "\n"
+    start += "int main(int argc, char *argv[]) {\n"
+    start += "    #ifdef ON_WINDOWS\n"
+    start += "    setlocale(LC_ALL, \".utf-8\");\n"
+    start += "    #endif\n"
+    start += "\n"
+    start += "    std::vector<std::string> args(argv + 1, argv + argc);\n"
+    start += "    PangVars p_vars;\n"
+    start += "    p_vars.o_buf = \"\";\n"
+    start += "\n"
+
+    if not no_args:
+        start += "    for (auto s: args) {\n"
+        start += "        for (auto ch: s) {\n"
+        start += "            p_vars.stack.push_back(ch);\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        p_vars.stack.push_back(s.length());\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    p_vars.stack.push_back(argc);\n"
+
+    return start + out + "\n    return 0;\n}\n"#    std::cout << stack.at(0);\n}"
+
 def run_program() -> None:
     arg_st = False
+    comp = False
     args = []
     
     for arg in sys.argv:
         if arg_st:
             args.append(arg)
+        elif comp:
+            outname = arg
+            break
         elif arg == "-args":
             arg_st = True
+        elif arg in ("-c", "-com"):
+            comp = True
     
-    if arg_st != True:
+    if len(sys.argv) < 2:
+        Croak(ErrorType.Command, "must input a file name")
+    
+    if arg_st != True and not comp:
         args = sys.argv[1:]
+    elif comp:
+        args = [sys.argv[1]]
     
     src = open(args[0], "r", encoding="utf-8").read()
     
-    lex_src = Lexer(src)
+    lex_src = Lexer(src, args[0])
     lex_src.get_tokens()
 
     #print(compile_tokens(lex_src.toks))
-
-    st = perf_counter()
-    simulate_tokens(args[::-1], lex_src.toks)
-    print(f"Program finished in {perf_counter() - st} seconds.")
+    if comp:
+        print("The compilation is still experimental, it may be buggy.")
+        print("You must have g++ in order to compile pang.")
+        open("temp.cc", "w", encoding="utf-8").write(compile_tokens(lex_src.toks))
+        os.system("g++ temp.cc -o %s -O3 -Wall" % outname)
+        os.remove("temp.cc")
+    else:
+        st = perf_counter()
+        simulate_tokens(args[::-1], lex_src.toks)
+        print(f"Program finished in {perf_counter() - st} seconds.")
 
 if __name__ == "__main__":
     run_program()

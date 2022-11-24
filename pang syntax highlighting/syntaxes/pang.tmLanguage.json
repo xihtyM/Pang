@@ -1,0 +1,80 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Pang",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#block-comments"	
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#raw_strings"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#identifiers"
+		},
+		{
+			"include": "#numbers"
+		}
+	],
+	"repository": {
+		"block-comments": {
+			"patterns": [{
+				"name": "comment.block",
+				"match": "(\/\\*(\\*(?!\/)|[^*])*\\*\/)"
+			}]
+		},
+		"comments": {
+			"patterns": [{
+				"name": "comment.line",
+				"match": "(//.*\n)"
+			}]
+		},
+		"operators": {
+			"patterns": [{
+				"name": "keyword.operator",
+				"match": "\\b[\\[\\]\\+\\-*%^$;:{}@~.?/\\\\<>]\\b"
+			}]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "support.function",
+				"match": "\\b(include|do|end|macro)\\b"
+			}]
+		},
+		"raw_strings": {
+			"name": "string.quoted.single.pang",
+			"begin": "'",
+			"end": "'"
+		},
+		"strings": {
+			"name": "string.quoted.double.pang",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [{
+				"name": "constant.character.escape.pang",
+				"match": "\\\\([0-9]{1,7}|[xX]{1}[0-9a-fA-F]{1,6}|.)"
+			}]
+		},
+		"numbers": {
+			"patterns": [{
+				"name": "constant.numeric.pang",
+				"match": "\\b[0-9][0-9]*\\b"
+			}]
+		},
+		"identifiers": {
+			"patterns": [{
+				"name": "entity.name.function",
+				"match": "([_a-zA-Z][_a-zA-Z0-9]*)"
+			}]
+		}
+	},
+	"scopeName": "source.pang"
+}

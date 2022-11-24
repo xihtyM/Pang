@@ -3,10 +3,10 @@ include "std.pang"
 clear
 
 readall
-open "test.txt"
-gets close
+push "std.pang" open
+gets
 
-push 10 printch
+push 10 printc
 
-push "file contains: "
+push "file contains: \n"
 println println

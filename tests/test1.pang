@@ -4,5 +4,5 @@ include "std.pang"
 clear
 
 push "Hello World!"
-open "test.txt"
+push "test.txt" open
 fprint

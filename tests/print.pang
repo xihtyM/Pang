@@ -1,5 +1,4 @@
 include "std.pang"
 
 clear
-push "test"
-push "hi " push "world!" concat println
+push "hello\n" print
