@@ -1,8 +1,8 @@
 // all pure pang operators
 
 macro drop   ] end // drop last item on stack
-macro puts   [ end // print to file with file descriptor from open
-macro gets   { end // input from file
+macro puts   [ end // adds a char or integer to the output buffer
+macro gets   { end // input from file (closes file in the process)
 macro dup    } end // append the last item on the stack to the stack
 macro push   $ end // push item to stack (strings/unsigned int)
 macro while  / end // while loop
@@ -13,10 +13,10 @@ macro swap   ^ end // swaps last item and current item on stack
 macro add    + end // adds last two values on the stack, dropping both items and appending output to stack
 macro sub    - end // subtracts last two values on the stack, dropping both items and appending output to stack
 macro mul    * end // multiplies last two values on the stack, dropping both items and appending output to stack
-macro divmod % end // appends value floor divided and remainder to stack
+macro divmod % end // appends value floor and remainder of last two values on stack to stack
 macro clear  ; end // remove every item on stack
 macro throw  \ end // throw last string on stack as an exception
-macro flush  . end // flush output buffer to file
+macro flush  . end // flush output buffer to file (closes file in the process)
 macro open   : end // open a file
 
 // stdin, stdout, stderr
@@ -26,6 +26,10 @@ macro stderr 2 end
 
 // ansi escape codes
 macro ESC_CODE 27 end
+
+// decrement and increment last item on stack
+macro dec push 1- end
+macro inc push 1+ end
 
 // add char to out buffer
 macro cout
@@ -56,22 +60,20 @@ macro chsin
 // drop last string on stack
 macro pop
     while 0 < do
-        swap drop push 1-
+        swap drop dec
     end drop
 end
 
 macro memmove
     dup back if 0 > do
         chsin while 0 < do
-            push 1-
-            cfront swap
+            dec front swap
         end drop
         push 0
     end
 
     while 0 < do
-        push 1-
-        swap cback
+        dec swap cback
     end drop front
 end
 
@@ -92,22 +94,30 @@ macro fprinti
 macro fprintc
     swap cout flush end
 
-// (fd, len, str, len)
-// (fd, len, str - 1, len - 1)
-// writes to file and retains length of string
+macro fprint
+    back // send file descriptor to back
+
+    while 0 < do // while string length > 0
+        dec swap cout end
+    
+    // drop counter and send file descriptor to front
+    drop front
+
+    // flush output buffer and send length of printed string to front of stack
+    flush
+end
+
+// writes to string file and retains length of string
 macro fwrite
     // length
     swap dup back
 
     // file descriptor
-    swap back
-
-    while 0 < do
-        push 1- swap cout
-    end drop front flush front
+    swap fprint
+    
+    // send length of printed string back to front of stack
+    front
 end
-
-macro fprint fwrite drop end
 
 // prints int with puts
 macro printi
