@@ -12,13 +12,23 @@ try:
 except ImportError:
     gtch = False
 
+try:
+    sys.set_int_max_str_digits(2147483647)
+except AttributeError:
+    pass # Program continues like normal, error can go silently.
+
 class ErrorType(Enum):
+    Name = auto()
+    Stack = auto()
     Syntax = auto()
     Command = auto()
+
 class TokenType(Enum):
     ID = auto()
     IF = auto()
     DO = auto()
+    #OR = auto()
+    #AND = auto()
     INT = auto()
     SUB = auto()
     ADD = auto()
@@ -44,11 +54,16 @@ class TokenType(Enum):
     MULTIPLY = auto()
     CONDITION = auto()
 
+    # For undefined tokens
+    NONE = auto()
+
 @dataclass
 class Token():
     typ: TokenType
-    raw: Union[str, int]
-    ind: int
+    raw: str
+    value: Union[str, int]
+    filename: str
+    ln: int
 
 T_READLINE = 0
 T_READALL = -1
@@ -56,10 +71,7 @@ T_READALL = -1
 o_buf = ""
 
 def Croak(err_typ: ErrorType, msg: str):
-    if err_typ == ErrorType.Syntax:
-        print("SyntaxError: %s" % msg)
-    elif err_typ == ErrorType.Command:
-        print("CommandError: %s" % msg)
+    print("%sError: %s" % (err_typ._name_, msg))
     exit(1)
 
 class Lexer():
@@ -70,6 +82,9 @@ class Lexer():
         self.size = len(src)
         self.toks: list[Token] = []
         self.includes: list[str] = []
+
+    def line(self, l_break: int) -> int:
+        return self.raw[:l_break].count("\n") + 1
 
     def _get(self) -> str:
         """ Returns current value and index++ """
@@ -88,7 +103,7 @@ class Lexer():
         return self.raw[self.index]
 
     def atom(self, tok_typ: TokenType) -> None:
-        self.toks.append(Token(tok_typ, self._get(), self.index - 1))
+        self.toks.append(Token(tok_typ, self._peek(), self._get(), self.fn, self.line(self.index - 1)))
 
     def num(self) -> None:
         start = self.index
@@ -97,7 +112,7 @@ class Lexer():
         while self._peek() and self._peek() in "1234567890":
             raw += self._get()
 
-        self.toks.append(Token(TokenType.INT, int(raw), start))
+        self.toks.append(Token(TokenType.INT, raw, int(raw), self.fn, self.line(start)))
     
     #def ptr(self) -> None:
     #    start = self.index
@@ -122,14 +137,14 @@ class Lexer():
                 Croak(
                     ErrorType.Syntax,
                     "unterminated string literal in file \"%s\" (detected at line: %d)" % (
-                        self.fn, 1 + self.raw[:start].count("\n")
+                        self.fn, self.line(start)
                     )
                 )
 
         # Add 1 to index to skip \' character
         self.index += 1
 
-        self.toks.append(Token(TokenType.STR, raw, start))
+        self.toks.append(Token(TokenType.STR, "\'%s\'" % raw, raw, self.fn, self.line(start)))
 
     def string(self) -> None:
         start = self.index
@@ -145,7 +160,7 @@ class Lexer():
                 Croak(
                     ErrorType.Syntax,
                     "unterminated string literal in file \"%s\" (detected at line: %d)" % (
-                        self.fn, 1 + self.raw[:start].count("\n")
+                        self.fn, self.line(start)
                     )
                 )
             
@@ -155,7 +170,7 @@ class Lexer():
         # Add 1 to index to skip \" character
         self.index += 1
 
-        self.toks.append(Token(TokenType.STR, raw.encode("utf-8").decode("unicode_escape"), start))
+        self.toks.append(Token(TokenType.STR, "\"%s\"" % raw, raw.encode("utf-8").decode("unicode_escape"), self.fn, self.line(start)))
 
     def comment_or_while(self) -> None:
         start = self.index
@@ -174,7 +189,7 @@ class Lexer():
             self.index += 1
             return
         
-        self.toks.append(Token(TokenType.WHILE, "/", start))
+        self.toks.append(Token(TokenType.WHILE, "/", "/", self.fn, self.line(start)))
 
     def include_file(self) -> None:
         while self._peek() in " \n\t":
@@ -182,7 +197,12 @@ class Lexer():
                 assert False, "Must include a file"
 
         if self._get() not in "\"\'":
-            assert False, "Include must include a string"
+            Croak(
+                ErrorType.Syntax,
+                "must include a string in file \"%s\" (detected at line: %d)" % (
+                    self.fn, self.line(self.index)
+                )
+            )
         
         include_filename = self._get()
 
@@ -190,7 +210,12 @@ class Lexer():
             include_filename += self._peek()
 
             if not self._get():
-                assert False, "EOF literal without terminating string: %s:%d" % (include_filename, self.index)
+                Croak(
+                    ErrorType.Syntax,
+                    "unterminated string literal in file \"%s\" (detected at line: %d)" % (
+                        self.fn, self.line(self.index)
+                    )
+                )
         
         # Add 1 to index to skip \"\' character
         self.index += 1
@@ -218,17 +243,17 @@ class Lexer():
                 break
         
         if raw in ("int", "char"):
-            self.toks.append(Token(TokenType.TYPE, raw, start))
+            self.toks.append(Token(TokenType.TYPE, raw, raw, self.fn, self.line(start)))
         elif raw == "macro":
-            self.toks.append(Token(TokenType.MACRO, raw, start))
+            self.toks.append(Token(TokenType.MACRO, raw, raw, self.fn, self.line(start)))
         elif raw == "end":
-            self.toks.append(Token(TokenType.END, raw, start))
+            self.toks.append(Token(TokenType.END, raw, raw, self.fn, self.line(start)))
         elif raw == "include":
             self.include_file()
         elif raw == "do":
-            self.toks.append(Token(TokenType.DO, raw, start))
+            self.toks.append(Token(TokenType.DO, raw, raw, self.fn, self.line(start)))
         else:
-            self.toks.append(Token(TokenType.ID, raw, start))
+            self.toks.append(Token(TokenType.ID, raw, raw, self.fn, self.line(start)))
 
     def get_tokens_without_macros(self) -> None:
         while self._peek():
@@ -304,6 +329,7 @@ class Lexer():
         macro_name = False
         skip_end = 0
         cur_name = ""
+        cur_tok = Token(TokenType.NONE, "", "", "", -1)
         cur_toks = []
         macros = {}
 
@@ -314,16 +340,27 @@ class Lexer():
             
             if tok.typ == TokenType.MACRO:
                 if macro:
-                    assert False, "Macro cannot include macro: %s:%d" % (tok.raw, tok.ind)
+                    Croak(
+                        ErrorType.Syntax,
+                        "macro cannot define a macro in itself, found in file \"%s\" (at line %d)" % (
+                            tok.filename, tok.ln
+                        )
+                    )
 
                 macro_name = True
                 continue
             
             if macro_name:
                 if tok.typ != TokenType.ID:
-                    assert False, "Macro must have an ID"
+                    Croak(
+                        ErrorType.Syntax,
+                        "macro name must be an identifier, found in file \"%s\" (at line %d)" % (
+                            tok.filename, tok.ln
+                        )
+                    )
                 
-                cur_name = tok.raw
+                cur_tok = tok
+                cur_name = cur_tok.value
                 macro_name = False
                 macro = True
                 continue
@@ -331,6 +368,14 @@ class Lexer():
             if macro:
                 if tok.typ == TokenType.END and not skip_end:
                     macro = False
+
+                    if cur_name in macros:
+                        Croak(
+                            ErrorType.Name, "redefinition of macro %s in file \"%s\" (detected at line: %d)" % (
+                                cur_name, cur_tok.filename, cur_tok.ln
+                            )
+                        )
+
                     macros[cur_name] = cur_toks
                     cur_toks = []
                     continue
@@ -342,13 +387,17 @@ class Lexer():
                     cur_toks.append(tok)
                 else:
                     # print(tok.raw) # open(self.includes[0], "r", encoding="utf-8").read().count("\n", 0, tok.ind))
-                    if tok.raw not in macros:
-                        assert False, "Undefined reference to identifier: %s" % tok.raw
+                    if tok.value not in macros:
+                        Croak(
+                            ErrorType.Name,
+                            "undefined reference to identifier %s in file \"%s\" (detected at line: %d)" % (
+                                tok.raw, tok.filename, tok.ln
+                            )
+                        )
                     
-                    for macro_tok in macros[tok.raw]:#[0]:
+                    for macro_tok in macros[tok.value]:#[0]:
                         cur_toks.append(macro_tok)
         
-        keys = macros.keys()
         skip_macro = False
         skip_end = 0
 
@@ -364,10 +413,18 @@ class Lexer():
                 continue
                 
             if tok.typ == TokenType.ID:
-                if not tok.raw in keys:
-                    assert False, "Undefined reference to identifier: %s" % tok.raw
+                if not tok.value in macros:
+                    Croak(
+                        ErrorType.Name,
+                        "undefined reference to identifier %s in file \"%s\" (detected at line: %d)" % (
+                            tok.raw, tok.filename, tok.ln
+                        )
+                    )
 
-                for macro_tok in macros[tok.raw]:
+                for macro_tok in macros[tok.value]:
+                    macro_tok.ln = tok.ln
+                    macro_tok.filename = tok.filename
+
                     macro_added_toks.append(macro_tok)
             elif tok.typ == TokenType.MACRO:
                 # skip macros as they have already been added
@@ -435,7 +492,6 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compar
 
     while True:
         tok = tok_stream[index]
-
         if skip:
             index += 1
             skip -= 1
@@ -474,7 +530,6 @@ def simulate_while(stack: list[int], tok_stream: list[Token], start: int, compar
 def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tuple[list[int], int]:
     global o_buf
 
-
     tok = tok_stream[start]
     
     skip = 0
@@ -487,14 +542,14 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
             Croak(ErrorType.Syntax, "incorrect data type for push")
 
         if new_tok.typ == TokenType.STR:
-            for ch in new_tok.raw[::-1]:
+            for ch in new_tok.value[::-1]:
                 stack.append(ord(ch))
             
-            stack.append(len(new_tok.raw))
+            stack.append(len(new_tok.value))
             skip += 1
             return stack, skip
 
-        stack.append(new_tok.raw)
+        stack.append(new_tok.value)
         skip += 1
     elif tok.typ == TokenType.FLUSH:
         stream = stack.pop()
@@ -517,14 +572,24 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         new_tok = tok_stream[start + 1]
 
         if new_tok.typ != TokenType.TYPE:
-            assert False, "Must be a valid data type: %s:%d" % (new_tok.raw, new_tok.ind)
+            Croak(
+                ErrorType.Syntax,
+                "must be a valid data type for puts in file \"%s\" (detected at line: %d)" % (
+                    new_tok.filename, new_tok.ln
+                )
+            )
         
-        if new_tok.raw == "char":
+        if new_tok.value == "char":
             o_buf += chr(stack[-1])
-        elif new_tok.raw == "int":
+        elif new_tok.value == "int":
             o_buf += str(stack[-1])
         else:
-            assert False, "Incorrect data type for intrinsic PUTS: %s:%d" % (new_tok.raw, new_tok.ind)
+            Croak(
+                ErrorType.Syntax,
+                "must be a valid data type for puts in file \"%s\" (detected at line: %d)" % (
+                    new_tok.filename, new_tok.ln
+                )
+            )
     
         skip += 1
     elif tok.typ == TokenType.GETS:
@@ -576,8 +641,8 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
             os.close(stream)
     elif tok.typ == TokenType.DO:
         typ = tok_stream[start - 3]
-        condition = tok_stream[start - 2].raw
-        compare_typ = tok_stream[start - 1].raw
+        condition = tok_stream[start - 2].value
+        compare_typ = tok_stream[start - 1].value
 
         if typ.typ == TokenType.WHILE:
             stack, skip = simulate_while(stack, tok_stream, start, compare_typ, condition)
@@ -607,12 +672,22 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         stack.append(file_descriptor)
     elif tok.typ == TokenType.DROP:
         if len(stack) == 0:
-            assert False, "Not enough values on stack to drop: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to drop in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
 
         stack.pop()
     elif tok.typ == TokenType.SWAP:
         if len(stack) < 2:
-            assert False, "Not enough values on stack to swap: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to swap in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
 
         stack[-1], stack[-2] = stack[-2], stack[-1]
     elif tok.typ == TokenType.BACK:
@@ -621,22 +696,42 @@ def simulate_token(stack: list[int], tok_stream: list[Token], start: int) -> tup
         stack.append(stack.pop(0))
     elif tok.typ == TokenType.ADD:
         if len(stack) < 2:
-            assert False, "Not enough values on stack to add: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to add in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
 
         stack.append(stack.pop(-2) + stack.pop())
     elif tok.typ == TokenType.SUB:
         if len(stack) < 2:
-            assert False, "Not enough values on stack to sub: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to sub in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
 
         stack.append(stack.pop(-2) - stack.pop())
     elif tok.typ == TokenType.MULTIPLY:
         if len(stack) < 2:
-            assert False, "Not enough values on stack to multiply: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to multiply in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
         
         stack.append(stack.pop(-2) * stack.pop())
     elif tok.typ == TokenType.DIVMOD:
         if len(stack) < 2:
-            assert False, "Not enough values on stack to divmod: %s:%d" % (tok.raw, tok.ind)
+            Croak(
+                ErrorType.Stack,
+                "not enough values on stack to divmod in file \"%s\" (detected at line: %d)" % (
+                    tok.filename, tok.ln
+                )
+            )
 
         stack += divmod(stack.pop(-2), stack.pop())
     elif tok.typ == TokenType.CLEAR:
@@ -674,10 +769,7 @@ def unmacro_tokens(tok_stream: list[Token]) -> str:
 
     out = ""
     for tok in tok_stream:
-        if tok.typ == TokenType.STR:
-            out += "\"" + tok.raw + "\""
-        else:
-            out += str(tok.raw)
+        out += tok.raw
     
     return out 
 
@@ -694,12 +786,11 @@ def find_end(start: int, tok_stream: list[Token]) -> int:
             return ind
     Croak(ErrorType.Syntax, "no end found")
 
-
 def compile_tokens(tok_stream: list[Token]) -> str:
     """ Compiles to native binary """
 
     skip = 0
-    curly_end = 0
+    curly_end = []
     no_args = False
     flush = False
 
@@ -710,9 +801,11 @@ def compile_tokens(tok_stream: list[Token]) -> str:
             skip -= 1
             continue
         if curly_end:
-            curly_end -= 1
-            if not curly_end:
-                out += " }"
+            curly_end = [cend - 1 for cend in curly_end]
+            for cind, cend in enumerate(curly_end):
+                if not cend:
+                    out += " }"
+                    curly_end.pop(cind)
 
         if tok.typ == TokenType.PUSH:
             new_tok = tok_stream[ind + 1]
@@ -722,11 +815,11 @@ def compile_tokens(tok_stream: list[Token]) -> str:
                 Croak(ErrorType.Syntax, "incorrect data type for push")
             
             if new_tok.typ == TokenType.INT:
-                out += " PUSH(%d)" % new_tok.raw
+                out += " PUSH(%d)" % new_tok.value
             else:
-                for ch in new_tok.raw[::-1]:
+                for ch in new_tok.value[::-1]:
                     out += " PUSH(%d)" % ord(ch)
-                out += " PUSH(%d)" % len(new_tok.raw)
+                out += " PUSH(%d)" % len(new_tok.value)
         elif tok.typ == TokenType.FLUSH:
             out += " _FLUSH_(&p_vars);"
             flush = True
@@ -737,9 +830,14 @@ def compile_tokens(tok_stream: list[Token]) -> str:
             skip += 1
 
             if new_tok.typ != TokenType.TYPE:
-                Croak(ErrorType.Syntax, "incorrect data type for puts")
+                Croak(
+                    ErrorType.Syntax,
+                    "must be a valid data type for puts in file \"%s\" (detected at line: %d)" % (
+                        new_tok.filename, new_tok.ln
+                    )
+                )
             
-            if new_tok.raw == "char":
+            if new_tok.value == "char":
                 out += " PCHR"
             else:
                 out += " PINT"
@@ -769,15 +867,15 @@ def compile_tokens(tok_stream: list[Token]) -> str:
                 continue
             out += " p_vars.stack.clear();"
         elif tok.typ == TokenType.DO:
-            curly_end = find_end(ind, tok_stream)
+            curly_end.append(find_end(ind, tok_stream))
 
             if tok_stream[ind - 1].raw in ("!", "="):
                 tok_stream[ind - 1].raw += "="
             
             if tok_stream[ind - 3].typ == TokenType.WHILE:
-                out += " while (%s %s p_vars.stack.back()) {" % (str(tok_stream[ind - 2].raw), tok_stream[ind - 1].raw)
+                out += " while (%s %s p_vars.stack.back()) {" % (tok_stream[ind - 2].raw, tok_stream[ind - 1].raw)
             elif tok_stream[ind - 3].typ == TokenType.IF:
-                out += " if (%s %s p_vars.stack.back()) {" % (str(tok_stream[ind - 2].raw), tok_stream[ind - 1].raw)
+                out += " if (%s %s p_vars.stack.back()) {" % (tok_stream[ind - 2].raw, tok_stream[ind - 1].raw)
 
     # boilerplate code
     start = "#include <stdio.h>\n"
@@ -1007,7 +1105,7 @@ def run_program() -> None:
     if len(sys.argv) < 2:
         Croak(ErrorType.Command, "must input a file name")
     
-    if arg_st != True and not comp:
+    if not (comp or arg_st):
         args = sys.argv[1:]
     elif comp:
         args = [sys.argv[1]]
@@ -1027,6 +1125,9 @@ def run_program() -> None:
     else:
         st = perf_counter()
         simulate_tokens(args[::-1], lex_src.toks)
+        #parsed = Parse(lex_src.toks)
+        #parsed.parse_all()
+        #Interpreter(args, parsed.ops)
         print(f"Program finished in {perf_counter() - st} seconds.")
 
 if __name__ == "__main__":

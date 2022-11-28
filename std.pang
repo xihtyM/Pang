@@ -20,9 +20,13 @@ macro flush  . end // flush output buffer to file (closes file in the process)
 macro open   : end // open a file
 
 // stdin, stdout, stderr
-macro stdin  0 end
-macro stdout 1 end
-macro stderr 2 end
+macro stdin push 0 end
+macro stdout push 1 end
+macro stderr push 2 end
+
+// boolean values
+macro false 0 end
+macro true 1 end
 
 // ansi escape codes
 macro ESC_CODE 27 end
@@ -121,11 +125,11 @@ end
 
 // prints int with puts
 macro printi
-    push stdout fprinti end
+    stdout fprinti end
 
 // prints char with puts
 macro printc
-    push stdout fprintc end
+    stdout fprintc end
 
 // print newline character to stdout
 macro printlc
@@ -133,11 +137,11 @@ macro printlc
 
 // prints string with fprint to stdout
 macro print
-    push stdout fprint end
+    stdout fprint end
 
 // prints string with fwrite (retains length of string) to stdout
 macro printf
-    push stdout fwrite end
+    stdout fwrite end
 
 // prints string with puts and newline
 macro println
@@ -148,7 +152,9 @@ macro fgetln
 macro fgetc
     push 1 swap gets end
 macro getc
-    push stdin fgetc end
+    stdin fgetc end
+macro getln
+    stdin fgetln end
 
 /*
 macro rgb

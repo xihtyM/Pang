@@ -22,5 +22,10 @@ Text highlighting: Complete
 
 Compiler: Incomplete
     - Working: Yes
-    - Bignums: No
+    - Bignums: No: (Probably have a library in pang for that)
     - Unicode: Yes
+
+Installer: Incomplete
+    - Working executable: No
+    - Updating old versions: No
+    - Unix support: No
