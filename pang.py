@@ -12,6 +12,11 @@ try:
 except ImportError:
     gtch = False
 
+try:
+    sys.set_int_max_str_digits(2147483647)
+except AttributeError:
+    pass # Program continues like normal, error can go silently.
+
 class ErrorType(Enum):
     Syntax = auto()
     Command = auto()
