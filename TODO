@@ -11,11 +11,11 @@ Loops: Complete
 Modules/libraries: Complete
     - Implement: Yes
     - Includes: Yes
-    - Standard library: ? Yes
+    - Standard library: Yes
 
 Macros: Complete
     - Expanding before interpreting tokens: Yes
-    - Standard library macros: ? Yes
+    - Standard library macros: Yes
 
 Text highlighting: Complete
     - VSCode: Yes

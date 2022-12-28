@@ -1,0 +1,9 @@
+include "std.pang"
+
+clear
+
+"std.pang" "r" open
+fread back puts
+front close
+
+0 exit

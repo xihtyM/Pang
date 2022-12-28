@@ -1,174 +1,90 @@
-// all pure pang operators
+/* Standard pang library */
 
-macro drop   ] end // drop last item on stack
-macro puts   [ end // adds a char or integer to the output buffer
-macro gets   { end // input from file (closes file in the process)
-macro dup    } end // append the last item on the stack to the stack
-macro push   $ end // push item to stack (strings/unsigned int)
-macro while  / end // while loop
-macro if     ? end // if statement
-macro back   @ end // send last item to back of the stack
-macro front  ~ end // send back of the stack to front of the stack
-macro swap   ^ end // swaps last item and current item on stack
-macro add    + end // adds last two values on the stack, dropping both items and appending output to stack
-macro sub    - end // subtracts last two values on the stack, dropping both items and appending output to stack
-macro mul    * end // multiplies last two values on the stack, dropping both items and appending output to stack
-macro divmod % end // appends value floor and remainder of last two values on stack to stack
-macro clear  ; end // remove every item on stack
-macro throw  \ end // throw last string on stack as an exception
-macro flush  . end // flush output buffer to file (closes file in the process)
-macro open   : end // open a file
+include "os.pang"
 
-// stdin, stdout, stderr
-macro stdin push 0 end
-macro stdout push 1 end
-macro stderr push 2 end
+/* Gates */
 
-// boolean values
-macro false 0 end
-macro true 1 end
+macro not 0 = end
+macro chsin 0 swap sub end
 
-// ansi escape codes
-macro ESC_CODE 27 end
+macro else not if end
 
-// decrement and increment last item on stack
-macro dec push 1- end
-macro inc push 1+ end
+/* Types */
 
-// add char to out buffer
-macro cout
-    puts char drop end
+macro int  0 end
+macro char 1 end
 
-// swap last item with item 2 blocks behind
+/* * * * * * * * *
+ * STDIO streams *
+ * * * * * * * * */
+
+macro stdin  0 end
+macro stdout 1 end
+macro stderr 2 end
+
+/* Util */
+
+macro clear 0 purge end
+macro drop  1 purge end
+
+macro stdout_write stdout write drop end
+
+macro bufc char buf end
+macro bufi int  buf end
+
 macro over
-    back swap front swap back swap front end
-
-// send last item to 1st index of stack
-macro cback
-    front swap back back end
-
-// send 1st index to front of stack
-macro cfront
-    front front swap back end
-
-macro div
-    divmod drop end
-macro mod
-    divmod swap drop end
-
-// use after pushing a number to the stack
-// for example, push 1 neg will push -1 to the stack
-macro chsin
-    push 0 swap sub end
-
-// drop last string on stack
-macro pop
-    while 0 < do
-        swap drop dec
-    end drop
+    swap back swap
+    front swap
 end
 
-macro memmove
-    dup back if 0 > do
-        chsin while 0 < do
-            dec front swap
-        end drop
-        push 0
-    end
-
-    while 0 < do
-        dec swap cback
+macro bufs
+    dup back dup 0 < while do
+        dup 1 add chsin ptr // get ptr to char
+        bufc drop // add the char to the buffer and drop it
+        1 sub dup // minus 1 from length
     end drop front
 end
 
-// len2 s2 item s1 len+len2 
-macro concat
-    push "WIP" throw
-    memmove dup back add
+macro fputs
+    back bufs front write
 end
 
-// gets open files
-macro readall 
-    push 1 chsin end // -1
-macro readline
-    push 0 end // 0
-
-macro fprinti
-    swap puts int drop flush end
-macro fprintc
-    swap cout flush end
-
-macro fprint
-    back // send file descriptor to back
-
-    while 0 < do // while string length > 0
-        dec swap cout end
-    
-    // drop counter and send file descriptor to front
-    drop front
-
-    // flush output buffer and send length of printed string to front of stack
-    flush
+macro fputc
+    back bufc front write
 end
 
-// writes to string file and retains length of string
-macro fwrite
-    // length
-    swap dup back
-
-    // file descriptor
-    swap fprint
-    
-    // send length of printed string back to front of stack
-    front
+macro fputi
+    back bufi front write
 end
 
-// prints int with puts
-macro printi
-    stdout fprinti end
-
-// prints char with puts
-macro printc
-    stdout fprintc end
-
-// print newline character to stdout
-macro printlc
-    push 10 printc end
-
-// prints string with fprint to stdout
-macro print
-    stdout fprint end
-
-// prints string with fwrite (retains length of string) to stdout
-macro printf
-    stdout fwrite end
-
-// prints string with puts and newline
-macro println
-    print printlc end
-
-macro fgetln
-    readline swap gets end
-macro fgetc
-    push 1 swap gets end
-macro getc
-    stdin fgetc end
-macro getln
-    stdin fgetln end
-
-/*
-macro rgb
-    // [38;2;{r};{g};{b}m
-    push ESC_CODE push 1 // sizeof ESC_CODE for concatenation
-    push "[38;2;" concat
-
-    memmove
-
-    println printi printi printi
-end */
-
-// error printing
-macro error
-    push "\u001b[38;2;200;0;0mError: "
-    print throw
+macro puts
+    bufs stdout_write
 end
+
+macro putln
+    10 swap 1 add bufs
+    stdout_write swap drop
+end
+
+macro puti
+    stdout fputi
+end
+
+macro putc
+    stdout fputc
+end
+
+macro eputs
+    "\x1b[38;2;200;0;0mError: "
+    bufs purge bufs // get color and message into buffer
+    "\x1b[0m" bufs purge // finish by cleaning up color
+    stdout_write 1 exit // exit with error code 1
+end
+
+// Input
+
+macro readall 1 chsin end
+macro readln  0 end
+
+macro fread  readall swap dup back read front end
+macro freadln readln swap dup back read front end
