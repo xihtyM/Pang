@@ -34,4 +34,5 @@ macro sleep  0x00C syscall end // pauses thread execution on the process for spe
 
 /* Stack operations */
 macro purge  0x010 syscall end // removes n values from stack
-macro ptr    0x011 syscall end // appends value at address popped from stack
+macro ptr    0x011 syscall end // pushes value at address popped from stack
+macro length 0x012 syscall end // pushes the length of the stack to the stack

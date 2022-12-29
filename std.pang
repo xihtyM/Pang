@@ -4,9 +4,13 @@ include "os.pang"
 
 /* Gates */
 
-macro not 0 = end
-macro chsin 0 swap sub end
+macro not 0 = end          // logical not gate
+macro chsin 0 swap sub end // changes the sign of the number
 
+// if the if statement is false
+// note: the condition must be duped as it gets popped.
+// note: in the if block before the else,
+//       if you push false after it will run the else block.
 macro else not if end
 
 /* Types */
@@ -18,25 +22,45 @@ macro char 1 end
  * STDIO streams *
  * * * * * * * * */
 
-macro stdin  0 end
-macro stdout 1 end
-macro stderr 2 end
+macro stdin  0 end // standard input file
+macro stdout 1 end // standard output file
+macro stderr 2 end // standard error reporting file
 
 /* Util */
 
 macro clear 0 purge end
 macro drop  1 purge end
 
-macro stdout_write stdout write drop end
-
 macro bufc char buf end
 macro bufi int  buf end
 
-macro over
-    swap back swap
-    front swap
+/* The range macro outputs a list of integers starting at 0 and ending at n, not including n.
+   This list is pushed to the stack. */
+macro range
+    dup back // save the range to the back of the stack
+    0 dup back // start counter and keep it at the back of the stack
+
+    < while do
+        front dup // add the first count to the stack
+        1 add // increment counter
+        front dup back
+        swap dup back <
+    end front front
+
+    2 purge // get rid of 2 unneeded values
 end
 
+/* The for macro takes 1 integer argument and iterates through the loop that many times. */
+macro for
+    1 add range while
+end
+
+macro div divmod drop end
+macro mod divmod swap drop end
+
+/* Output */
+
+/* The bufs macro is used to add each character from a string to the output buffer. */
 macro bufs
     dup back dup 0 < while do
         dup 1 add chsin ptr // get ptr to char
@@ -45,46 +69,80 @@ macro bufs
     end drop front
 end
 
+/* The fputs macro takes a file descriptor and a string as input,
+   and writes the string to the file specified by the file descriptor. */
 macro fputs
     back bufs front write
 end
 
+/* The fputc macro takes a file descriptor and a character as input,
+   and writes the character to the file specified by the file descriptor. */
 macro fputc
     back bufc front write
 end
 
+/* The fputi macro takes a file descriptor and an integer as input,
+   and writes the integer to the file specified by the file descriptor. */
 macro fputi
     back bufi front write
 end
 
+/* The puts macro takes a string as input and writes it to the standard output. */
 macro puts
-    bufs stdout_write
+    bufs stdout write
 end
 
+/* The putln macro takes a string as input and writes it to the standard output,
+   with a newline at the end. */
 macro putln
     10 swap 1 add bufs
-    stdout_write swap drop
+    stdout write swap drop
+    1 sub
 end
 
+/* puti is a macro for printing an integer to stdout. */
 macro puti
     stdout fputi
 end
 
+/* putc is a macro for printing a character to stdout.*/
 macro putc
     stdout fputc
 end
 
+/* eputs is a macro that writes a string to stdout with the prefix "Error: " in red color,
+   and then exits the program with error code 1.
+   It is used to print error messages in pang programs. */
 macro eputs
     "\x1b[38;2;200;0;0mError: "
     bufs purge bufs // get color and message into buffer
     "\x1b[0m" bufs purge // finish by cleaning up color
-    stdout_write 1 exit // exit with error code 1
+    stdout write 1 exit // exit with error code 1
 end
 
-// Input
+/* Input */
 
 macro readall 1 chsin end
 macro readln  0 end
 
+/* fread reads the entire contents of a file, and pushes the result to the stack. */
 macro fread  readall swap dup back read front end
+
+/* freadln reads a line from a file, and pushes the result to the stack. */
 macro freadln readln swap dup back read front end
+
+/* reads a line from stdin, pushing the result to the stack. */
+macro gets readln stdin read end
+
+/* Extra util */
+
+/* Over swaps the third last value and the last value on the stack. */
+macro over
+    // If the stack does not contain at least 3 items
+    length 3 > if do
+        "Must have at least 3 items for macro over.\n" eputs
+    end
+    
+    swap back swap
+    front swap
+end

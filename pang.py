@@ -516,6 +516,7 @@ class Syscall(Enum):
     # Stack operations
     RESIZE = auto()
     POINTER = auto()
+    LENGTH = auto()
 
 def find_end(ind: int, ops: list[Token]) -> int:
     skip_end = 0
@@ -586,12 +587,17 @@ def compile_ops(toks: list[Token]) -> str:
     start += "\n"
     start += "#define SYSCALL_RESIZE 16\n"
     start += "#define SYSCALL_POINTER 17\n"
+    start += "#define SYSCALL_LENGTH 18\n"
     start += "\n"
     start += "#define READALL -1\n"
     start += "#define READLINE 0\n"
     start += "\n"
     start += "template<typename T> T pop(std::vector<T> *stack, int64_t index = -1) {\n"
     start += "    T value;\n"
+    start += "    if ((int64_t) stack->size() < index) {\n"
+    start += "        std::cerr << \"StackError: Cannot pop from stack.\\n\";\n"
+    start += "        exit(1);\n"
+    start += "    }\n"
     start += "\n"
     start += "    if (index >= 0) {\n"
     start += "        value = stack->at(index);\n"
@@ -744,6 +750,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "\n"
     start += "    if (fd >= 0) {\n"
     start += "        vars->open_files.at(fd) << vars->buf;\n"
+    start += "        vars->open_files.at(fd).flush();\n"
     start += "        vars->buf = \"\";\n"
     start += "\n"
     start += "        return;\n"
@@ -815,7 +822,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "        }\n"
     start += "\n"
     start += "        case SYSCALL_RESIZE: {\n"
-    start += "            vars->mem.resize(vars->mem.size() - 1 - pop(&vars->mem));\n"
+    start += "            vars->mem.resize(((int64_t) vars->mem.size() - 1) - pop(&vars->mem));\n"
     start += "            break;\n"
     start += "        }\n"
     start += "\n"
@@ -827,6 +834,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "            vars->mem.push_back(vars->mem.at(pop(&vars->mem)));\n"
     start += "            break;\n"
     start += "        }\n"
+    start += "        case SYSCALL_LENGTH: { vars->mem.push_back(vars->mem.size() + 1); break; }\n"
     start += "    }\n"
     start += "}\n"
     start += "\n"
@@ -864,7 +872,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "        }\n"
     start += "\n"
     start += "        vars.mem.push_back(arg.length());\n"
-    start += "    }\n"
+    start += "    }\n\n"
 
     out = ""
 
@@ -907,15 +915,15 @@ def compile_ops(toks: list[Token]) -> str:
             out += "%sPANG_NEQU;\n" % (" " * indent_width)
 
         elif tok.typ == TokenType.WHILE:
-            out += "%swhile (pop(&vars.mem)) {\n" % (" " * indent_width)
+            out += "\n%swhile (pop(&vars.mem)) {\n" % (" " * indent_width)
             indent_width += 4
         elif tok.typ == TokenType.IF:
-            out += "%sif (pop(&vars.mem)) {\n" % (" " * indent_width)
+            out += "\n%sif (pop(&vars.mem)) {\n" % (" " * indent_width)
             indent_width += 4
         
         elif tok.typ == TokenType.END:
             indent_width -= 4
-            out += "%s}\n" % (" " * indent_width)
+            out += "%s}\n\n" % (" " * indent_width)
 
         elif tok.typ == TokenType.SYSCALL:
             out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
@@ -992,6 +1000,8 @@ class Interpreter():
             self.mem = self.mem[:-self.mem.pop()]
         elif syscall_number == Syscall.POINTER:
             self.mem.append(self.mem[self.mem.pop()])
+        elif syscall_number == Syscall.LENGTH:
+            self.mem.append(len(self.mem))
 
     def syscall_open(self) -> None:
         length = self.mem.pop()
@@ -1016,7 +1026,7 @@ class Interpreter():
     
     def syscall_write(self) -> None:        
         self.open_files[
-            self.mem[-1]].write(self.o_buf)
+            self.mem.pop()].write(self.o_buf)
         
         self.o_buf = ""
 
@@ -1036,7 +1046,8 @@ class Interpreter():
         self.cur = self.ops[self.ind]
         self.ind += 1
 
-        #print(self.cur.typ, [chr(s) for s in self.mem if 0x110000 >= s >= 0])
+        #print([chr(s) for s in self.mem if 0x110000 >= s >= 0])
+        #print(self.cur.typ._name_, [chr(s) for s in self.mem if 0x110000 >= s >= 0])
 
     def condition(self) -> None:
         if self.mem.pop():
@@ -1066,6 +1077,8 @@ class Interpreter():
         elif tok.typ == TokenType.BITNOT:
             self.mem[-1] = ~self.mem[-1]
         
+        elif tok.typ in (TokenType.DO, TokenType.END):
+            pass
         # Need at least 2 items on stack
         else:
             self.simple()
@@ -1127,7 +1140,7 @@ class Interpreter():
 
             if self.exit_code is not None:
                 break
-        
+
         if self.exit_code is None:
             self.exit_code = -1
     
@@ -1179,7 +1192,7 @@ def run_program() -> None:
     elif comp:
         args = [sys.argv[1]]
     
-    src = open(args[0], "r", encoding="utf-8").read()
+    src = open(sys.argv[1], "r", encoding="utf-8").read()
     
     lex_src = Lexer(src, args[0])
     lex_src.get_tokens()
