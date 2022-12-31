@@ -1018,8 +1018,10 @@ class Interpreter():
         self.mem += [len(contents), fd]
     
     def syscall_write(self) -> None:        
-        self.open_files[
-            self.mem.pop()].write(self.o_buf)
+        file = self.open_files[self.mem.pop()]
+        
+        file.write(self.o_buf)
+        file.flush()
         
         self.o_buf = ""
 
@@ -1204,4 +1206,3 @@ def run_program() -> None:
 
 if __name__ == "__main__":
     run_program()
-
