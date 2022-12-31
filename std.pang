@@ -117,7 +117,7 @@ macro eputs
     "\x1b[38;2;200;0;0mError: "
     bufs purge bufs // get color and message into buffer
     "\x1b[0m" bufs purge // finish by cleaning up color
-    stdout write 1 exit // exit with error code 1
+    stderr write 1 exit // exit with error code 1
 end
 
 /* Input */
@@ -126,13 +126,13 @@ macro readall 1 chsin end
 macro readln  0 end
 
 /* fread reads the entire contents of a file, and pushes the result to the stack. */
-macro fread  readall swap dup back read front end
+macro fread readall swap dup back read front end
 
 /* freadln reads a line from a file, and pushes the result to the stack. */
 macro freadln readln swap dup back read front end
 
 /* reads a line from stdin, pushing the result to the stack. */
-macro gets readln stdin read end
+macro input readln stdin read end
 
 /* Extra util */
 
@@ -140,7 +140,7 @@ macro gets readln stdin read end
 macro over
     // If the stack does not contain at least 3 items
     length 3 > if do
-        "Must have at least 3 items for macro over.\n" eputs
+        "Must have at least 3 items on the stack for macro over.\n" eputs
     end
     
     swap back swap

@@ -5,13 +5,6 @@ from typing import Union
 import sys
 import os
 
-gtch = True
-
-try:
-    from msvcrt import getche
-except ImportError:
-    gtch = False
-
 try:
     sys.set_int_max_str_digits(2147483647)
 except AttributeError:
@@ -1075,7 +1068,7 @@ class Interpreter():
         elif tok.typ == TokenType.DUP:            
             self.mem.append(self.mem[-1])
         elif tok.typ == TokenType.BITNOT:
-            self.mem[-1] = ~self.mem[-1]
+            self.mem[-1] = int(bin(self.mem[-1])[2:].replace("1", " ").replace("0", "1").replace(" ", "0"), 2)
         
         elif tok.typ in (TokenType.DO, TokenType.END):
             pass
