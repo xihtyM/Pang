@@ -18,6 +18,11 @@ macro else not if end
 macro int  0 end
 macro char 1 end
 
+/* Booleans */
+
+macro true 1 end
+macro false 0 end
+
 /* * * * * * * * *
  * STDIO streams *
  * * * * * * * * */
@@ -110,7 +115,7 @@ macro putc
     stdout fputc
 end
 
-/* eputs is a macro that writes a string to stdout with the prefix "Error: " in red color,
+/* eputs is a macro that writes a string to stderr with the prefix "Error: " in red color,
    and then exits the program with error code 1.
    It is used to print error messages in pang programs. */
 macro eputs

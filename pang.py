@@ -489,9 +489,9 @@ class Syscall(Enum):
 
     # File management
     OPEN = auto()
-    READ = auto() # Unimplemented
+    READ = auto()
     WRITE = auto()
-    CLOSE = auto() # Unimplemented
+    CLOSE = auto()
 
     # Device management
     IOCTL = auto() # Unimplemented
