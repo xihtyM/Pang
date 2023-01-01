@@ -100,9 +100,8 @@ end
 /* The putln macro takes a string as input and writes it to the standard output,
    with a newline at the end. */
 macro putln
-    10 swap 1 add bufs
-    stdout write swap drop
-    1 sub
+    bufs '\n' bufc drop
+    stdout write
 end
 
 /* puti is a macro for printing an integer to stdout. */

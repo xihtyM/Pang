@@ -530,12 +530,143 @@ def find_end(ind: int, ops: list[Token]) -> int:
     
     Croak(ErrorType.Syntax, "expected end (at line %d)" % (ops[ind].ln))
 
-def compile_ops(toks: list[Token]) -> str:
+def get_syscall(num: int) -> str:
+    syscalls = {
+        0x002: "exit(pop(&vars.mem));\n",
+        0x005: "PANG_OPEN(&vars);\n",
+        0x006: "PANG_READ(&vars);\n",
+        0x007: "PANG_WRITE(&vars);\n",
+        0x008: "PANG_CLOSE(&vars);\n",
+        0x00C: "std::this_thread::sleep_for(std::chrono::milliseconds(pop(&vars.mem)));\n",
+        0x010: "vars.mem.resize(((int64_t) vars.mem.size() - 1) - pop(&vars.mem));\n",
+        0x011: "if (vars.mem.back() < 0) { vars.mem.push_back(pop(&vars.mem) + vars.mem.size()); } vars.mem.push_back(vars.mem.at(pop(&vars.mem)));\n",
+        0x012: "vars.mem.push_back(vars.mem.size());\n"
+    }
+
+    if num not in syscalls:
+        Croak(ErrorType.Stack, "Syscall number not valid. (number: %d)" % num)
+
+    return syscalls[num]
+
+def compile_ops(toks: list[Token], optimise: bool) -> str:
     """ Compiles to C++ """
     
     if len(toks) <= 0:
         Croak(ErrorType.Compile, "nothing to compile")
 
+
+    out = ""
+
+    indent_width = 4
+    prev_int = None
+    direct_syscall = False
+    direct_buf = False
+    direct_push_string = False
+    direct_divmod = False
+
+    for tok in toks:
+        if tok.typ == TokenType.STR:
+            direct_push_string = True
+            out += "%sPUSH_STRING(&vars.mem, %s);\n" % (" " * indent_width, tok.raw)
+        elif tok.typ == TokenType.INT:
+            out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
+
+            if optimise:
+                prev_int = tok.value
+                continue
+        
+        elif tok.typ == TokenType.BUF:
+            if prev_int is not None:
+                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out += " " * indent_width
+
+                if prev_int == 0:
+                    out += "vars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1));\n"
+                elif prev_int == 1:
+                    out += "vars.buf += vars.mem.at(vars.mem.size() - 1);\n"
+                else:
+                    Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
+
+                prev_int = None
+                continue
+            
+            direct_buf = True
+            out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
+        
+        elif tok.typ == TokenType.DUP:
+            out += "%sPANG_DUP;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.BACK:
+            out += "%sPANG_BACK;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.FRONT:
+            out += "%sPANG_FRONT;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.SWAP:
+            out += "%sPANG_SWAP;\n" % (" " * indent_width)
+        
+        elif tok.typ == TokenType.ADD:
+            if prev_int is not None:
+                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out += "%sPUSH_INTEGER(pop(&vars.mem) + %d);\n" % (" " * indent_width, prev_int)
+
+                prev_int = None
+                continue
+            
+            out += "%sPANG_ADD;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.SUB:
+            if prev_int is not None:
+                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out += "%sPUSH_INTEGER(pop(&vars.mem) - %d);\n" % (" " * indent_width, prev_int)
+
+                prev_int = None
+                continue
+            
+            out += "%sPANG_SUB;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.MUL:
+            if prev_int is not None:
+                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out += "%sPUSH_INTEGER(pop(&vars.mem) * %d);\n" % (" " * indent_width, prev_int)
+
+                prev_int = None
+                continue
+            
+            out += "%sPANG_MUL;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.DIVMOD:
+            direct_divmod = True
+
+            out += "%sPANG_DIVMOD(&vars.mem);\n" % (" " * indent_width)
+
+        elif tok.typ == TokenType.GREATER_THAN:
+            out += "%sPANG_GT;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.SMALLER_THAN:
+            out += "%sPANG_ST;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.EQUAL:
+            out += "%sPANG_EQU;\n" % (" " * indent_width)
+        elif tok.typ == TokenType.NOT_EQUAL:
+            out += "%sPANG_NEQU;\n" % (" " * indent_width)
+
+        elif tok.typ == TokenType.WHILE:
+            out += "\n%swhile (pop(&vars.mem)) {\n" % (" " * indent_width)
+            indent_width += 4
+        elif tok.typ == TokenType.IF:
+            out += "\n%sif (pop(&vars.mem)) {\n" % (" " * indent_width)
+            indent_width += 4
+        
+        elif tok.typ == TokenType.END:
+            indent_width -= 4
+            out += "%s}\n\n" % (" " * indent_width)
+
+        elif tok.typ == TokenType.SYSCALL:
+            if prev_int is not None:
+                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out += "%s%s" % (" " * indent_width, get_syscall(prev_int))
+
+                prev_int = None
+                continue
+
+            direct_syscall = True
+            out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
+        
+        prev_int = None
+    
     start =  "#include <iostream>\n"
     start += "#include <fstream>\n"
     start += "#include <vector>\n"
@@ -603,22 +734,27 @@ def compile_ops(toks: list[Token]) -> str:
     start += "    return value;\n"
     start += "}\n"
     start += "\n"
-    start += "template<typename T> void PANG_DIVMOD(std::vector<T> *stack) {\n"
-    start += "    T denominator = pop(stack);\n"
-    start += "    T numerator = pop(stack);\n"
-    start += "\n"
-    start += "    std::lldiv_t result = std::lldiv(numerator, denominator);\n"
-    start += "\n"
-    start += "    stack->push_back(result.quot);\n"
-    start += "    stack->push_back(result.rem);\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PUSH_STRING(std::vector<int64_t> *mem, std::string buf) {\n"
-    start += "    for (auto ch: buf) mem->push_back(ch);\n"
-    start += "\n"
-    start += "    mem->push_back(buf.length());\n"
-    start += "}\n"
-    start += "\n"
+    
+    if direct_divmod or not optimise:
+        start += "template<typename T> void PANG_DIVMOD(std::vector<T> *stack) {\n"
+        start += "    T denominator = pop(stack);\n"
+        start += "    T numerator = pop(stack);\n"
+        start += "\n"
+        start += "    std::lldiv_t result = std::lldiv(numerator, denominator);\n"
+        start += "\n"
+        start += "    stack->push_back(result.quot);\n"
+        start += "    stack->push_back(result.rem);\n"
+        start += "}\n"
+        start += "\n"
+
+    if direct_push_string or not optimise:
+        start += "inline void PUSH_STRING(std::vector<int64_t> *mem, std::string buf) {\n"
+        start += "    for (auto ch: buf) mem->push_back(ch);\n"
+        start += "\n"
+        start += "    mem->push_back(buf.length());\n"
+        start += "}\n"
+        start += "\n"
+    
     start += "std::ios_base::openmode flags_to_mode(std::string flags) {\n"
     start += "    if (flags == \"r\") {\n"
     start += "        return std::ios::in;\n"
@@ -667,7 +803,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "    }\n"
     start += "\n"
     start += "    if (fd != -3 && fd < 0) {\n"
-    start += "        std::cerr << \"FileError: Invalid file descriptor. - \" << fd << \'\\n\';"
+    start += "        std::cerr << \"FileError: Invalid file descriptor. - \" << fd << \'\\n\';\n"
     start += "        exit(1);\n"
     start += "    } else if (fd == -3) {\n"
     start += "        std::string contents = \"\";\n"
@@ -782,55 +918,56 @@ def compile_ops(toks: list[Token]) -> str:
     start += "    }\n"
     start += "}\n"
     start += "\n"
-    start += "void PANG_BUF(Variables *vars) {\n"
-    start += "    int64_t put_typ = pop(&vars->mem);\n"
-    start += "\n"
-    start += "    switch (put_typ) {\n"
-    start += "        case 0: { vars->buf += std::to_string(vars->mem.at(vars->mem.size() - 1)); break; }\n"
-    start += "        case 1: { vars->buf += vars->mem.at(vars->mem.size() - 1); break; }\n"
-    start += "\n"
-    start += "        default: {\n"
-    start += "            std::cerr << \"BufferError: Invalid buf type.\\n\";\n"
-    start += "            exit(1);\n"
-    start += "        }\n"
-    start += "    }\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PANG_SYSCALL(Variables *vars) {\n"
-    start += "    int64_t syscall_num = pop(&vars->mem);\n"
-    start += "\n"
-    start += "    switch (syscall_num) {\n"
-    start += "        case SYSCALL_EXIT: {\n"
-    start += "            exit(pop(&vars->mem));\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        case SYSCALL_OPEN: { PANG_OPEN(vars); break; }\n"
-    start += "        case SYSCALL_READ: { PANG_READ(vars); break; }\n"
-    start += "        case SYSCALL_WRITE: { PANG_WRITE(vars); break; }\n"
-    start += "        case SYSCALL_CLOSE: { PANG_CLOSE(vars); break; }\n"
-    start += "\n"
-    start += "        case SYSCALL_SLEEP: {\n"
-    start += "            std::this_thread::sleep_for(std::chrono::milliseconds(pop(&vars->mem)));\n"
-    start += "            break;\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        case SYSCALL_RESIZE: {\n"
-    start += "            vars->mem.resize(((int64_t) vars->mem.size() - 1) - pop(&vars->mem));\n"
-    start += "            break;\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        case SYSCALL_POINTER: {\n"
-    start += "            if (vars->mem.back() < 0) {\n"
-    start += "                vars->mem.push_back(pop(&vars->mem) + vars->mem.size());\n"
-    start += "            }\n"
-    start += "\n"
-    start += "            vars->mem.push_back(vars->mem.at(pop(&vars->mem)));\n"
-    start += "            break;\n"
-    start += "        }\n"
-    start += "        case SYSCALL_LENGTH: { vars->mem.push_back(vars->mem.size() + 1); break; }\n"
-    start += "    }\n"
-    start += "}\n"
-    start += "\n"
+
+    if direct_buf or not optimise:
+        start += "#define PANG_BUF \\\n"
+        start += "    switch (pop(&vars.mem)) { \\\n"
+        start += "        case 0: { vars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1)); break; } \\\n"
+        start += "        case 1: { vars.buf += vars.mem.at(vars.mem.size() - 1); break; } \\\n"
+        start += "    \\\n"
+        start += "        default: { \\\n"
+        start += "            std::cerr << \"BufferError: Invalid buf type.\\n\"; \\\n"
+        start += "            exit(1); \\\n"
+        start += "        } \\\n"
+        start += "    } \n"
+    
+    if direct_syscall or not optimise:
+        start += "void PANG_SYSCALL(Variables *vars) {\n"
+        start += "    int64_t syscall_num = pop(&vars->mem);\n"
+        start += "\n"
+        start += "    switch (syscall_num) {\n"
+        start += "        case SYSCALL_EXIT: {\n"
+        start += "            exit(pop(&vars->mem));\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        case SYSCALL_OPEN: { PANG_OPEN(vars); break; }\n"
+        start += "        case SYSCALL_READ: { PANG_READ(vars); break; }\n"
+        start += "        case SYSCALL_WRITE: { PANG_WRITE(vars); break; }\n"
+        start += "        case SYSCALL_CLOSE: { PANG_CLOSE(vars); break; }\n"
+        start += "\n"
+        start += "        case SYSCALL_SLEEP: {\n"
+        start += "            std::this_thread::sleep_for(std::chrono::milliseconds(pop(&vars->mem)));\n"
+        start += "            break;\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        case SYSCALL_RESIZE: {\n"
+        start += "            vars->mem.resize(((int64_t) vars->mem.size() - 1) - pop(&vars->mem));\n"
+        start += "            break;\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        case SYSCALL_POINTER: {\n"
+        start += "            if (vars->mem.back() < 0) {\n"
+        start += "                vars->mem.push_back(pop(&vars->mem) + vars->mem.size());\n"
+        start += "            }\n"
+        start += "\n"
+        start += "            vars->mem.push_back(vars->mem.at(pop(&vars->mem)));\n"
+        start += "            break;\n"
+        start += "        }\n"
+        start += "        case SYSCALL_LENGTH: { vars->mem.push_back(vars->mem.size()); break; }\n"
+        start += "    }\n"
+        start += "}\n"
+        start += "\n"
+    
     start += "#define PUSH_INTEGER(x) vars.mem.push_back(x)\n"
     start += "#define PANG_DUP   vars.mem.push_back(vars.mem.at(vars.mem.size() - 1))\n"
     start += "\n"
@@ -857,7 +994,7 @@ def compile_ops(toks: list[Token]) -> str:
     start += "    vars.exit_code = -1;\n"
     start += "    vars.buf = \"\";\n"
     start += "\n"
-    start += "    std::vector<std::string> args(argv + 1, argv + argc);\n"
+    start += "    std::vector<std::string> args(argv, argv + argc);\n"
     start += "\n"
     start += "    for (auto arg: args) {\n"
     start += "        for (auto ch: arg) {\n"
@@ -865,61 +1002,8 @@ def compile_ops(toks: list[Token]) -> str:
     start += "        }\n"
     start += "\n"
     start += "        vars.mem.push_back(arg.length());\n"
-    start += "    }\n\n"
-
-    out = ""
-
-    indent_width = 4
-
-    for tok in toks:
-        if tok.typ == TokenType.STR:
-            out += "%sPUSH_STRING(&vars.mem, %s);\n" % (" " * indent_width, tok.raw)
-        elif tok.typ == TokenType.INT:
-            out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
-        
-        elif tok.typ == TokenType.BUF:
-            out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
-        
-        elif tok.typ == TokenType.DUP:
-            out += "%sPANG_DUP;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.BACK:
-            out += "%sPANG_BACK;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.FRONT:
-            out += "%sPANG_FRONT;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.SWAP:
-            out += "%sPANG_SWAP;\n" % (" " * indent_width)
-        
-        elif tok.typ == TokenType.ADD:
-            out += "%sPANG_ADD;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.SUB:
-            out += "%sPANG_SUB;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.MUL:
-            out += "%sPANG_MUL;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.DIVMOD:
-            out += "%sPANG_DIVMOD(&vars.mem);\n" % (" " * indent_width)
-
-        elif tok.typ == TokenType.GREATER_THAN:
-            out += "%sPANG_GT;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.SMALLER_THAN:
-            out += "%sPANG_ST;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.EQUAL:
-            out += "%sPANG_EQU;\n" % (" " * indent_width)
-        elif tok.typ == TokenType.NOT_EQUAL:
-            out += "%sPANG_NEQU;\n" % (" " * indent_width)
-
-        elif tok.typ == TokenType.WHILE:
-            out += "\n%swhile (pop(&vars.mem)) {\n" % (" " * indent_width)
-            indent_width += 4
-        elif tok.typ == TokenType.IF:
-            out += "\n%sif (pop(&vars.mem)) {\n" % (" " * indent_width)
-            indent_width += 4
-        
-        elif tok.typ == TokenType.END:
-            indent_width -= 4
-            out += "%s}\n\n" % (" " * indent_width)
-
-        elif tok.typ == TokenType.SYSCALL:
-            out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
+    start += "    }\n"
+    start += "    vars.mem.push_back(args.size());\n\n"
     
     return start + out + "}"
 
@@ -1166,18 +1250,33 @@ class Interpreter():
 def run_program() -> None:
     arg_st = False
     comp = False
+    optimise = False
+    filename = False
+    asm = False
+
     args = []
+    outname = "a"
     
     for arg in sys.argv:
         if arg_st:
             args.append(arg)
-        elif comp:
+        elif filename:
             outname = arg
-            break
-        elif arg == "-args":
-            arg_st = True
+            filename = None
+        elif comp and arg == "-o":
+            if filename is None:
+                Croak(ErrorType.Command, "cannot have two output names...")
+            
+            filename = True
+        elif comp and arg == "-O":
+            optimise = True
+        elif comp and arg == "-S":
+            asm = True
         elif arg in ("-c", "-com"):
             comp = True
+        
+        elif arg == "-args":
+            arg_st = True
     
     if len(sys.argv) < 2:
         Croak(ErrorType.Command, "must input a file name")
@@ -1195,8 +1294,15 @@ def run_program() -> None:
     if comp:
         print("The compilation is still experimental, it may be buggy.")
         print("You must have g++ in order to compile pang.")
-        open("temp.cc", "w", encoding="utf-8").write(compile_ops(lex_src.toks))
-        os.system("g++ temp.cc -o %s -O3 -Werror" % outname)
+        open("temp.cc", "w", encoding="utf-8").write(compile_ops(lex_src.toks, optimise))
+        command = "g++ temp.cc -o %s -Werror" % outname
+
+        if optimise:
+            command += " -O3"
+        if asm:
+            command += " -S"
+        
+        os.system(command)
         os.remove("temp.cc")
     else:
         st = perf_counter()

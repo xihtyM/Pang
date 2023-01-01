@@ -1,0 +1,17 @@
+include "std.pang"
+
+macro fib // args: int n
+    0 swap 1 swap // stack: 0, 1, n
+
+    dup 0 < while do
+        1 sub over
+        dup over add
+        over dup 0 <
+    end 2 purge
+end
+
+clear
+
+93 for do
+    dup fib puti '\n' putc 2 purge
+end

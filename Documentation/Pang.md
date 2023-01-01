@@ -1,6 +1,26 @@
 ## Pang documentation
 Pang is a stack-based, interpreted and compiled programming language.
 
+# Arguments
+* `-c` or `-com`
+    - Compilation mode.
+* `-o outname`
+    - Output file name for compilation.
+* `-S`
+    - Generates assembly code.
+* `-O`
+    - Optimises code.
+* `-args`
+    - Sets all arguments after the -args flag in interpreting mode.
+
+# Command syntax
+* `pang.py filename.pang arguments`
+    - Interpretation mode, arguments (including filename.pang) are pushed to stack.
+* `pang.py filename.pang -args arguments`
+    - Interpretation mode, arguments are pushed to the stack.
+* `pang.py filename.pang -c`
+    - Compilation mode, make sure `-c` flag is before all other compilation-specific flags.
+    - You can put any compilation argument after `-c`, it is recommended to include `-O` as that optimises your code.
 # How the stack works
 - In pang, the stack is a list of signed 64-bit integers. (In interpreted mode they are bignums however.)
 - The stack follows the last in first out rule, meaning to pop the stack would remove the last pushed item.
