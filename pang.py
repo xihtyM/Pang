@@ -1003,7 +1003,7 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
     start += "\n"
     start += "        vars.mem.push_back(arg.length());\n"
     start += "    }\n"
-    start += "    vars.mem.push_back(args.size());\n\n"
+    start += "    vars.mem.push_back(argc);\n\n"
     
     return start + out + "}"
 
