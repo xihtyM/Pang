@@ -20,7 +20,7 @@ macro char 1 end
 
 /* Booleans */
 
-macro true 1 end
+macro true  1 end
 macro false 0 end
 
 /* * * * * * * * *
@@ -106,22 +106,16 @@ end
 
 /* puti is a macro for printing an integer to stdout. */
 macro puti
-    stdout fputi
+    bufi stdout write
 end
 
 /* putc is a macro for printing a character to stdout.*/
 macro putc
-    stdout fputc
+    bufc stdout write
 end
 
-/* eputs is a macro that writes a string to std
-macro cls
-    "\e[1;1H\e[2J"err puts purge
-end
-
-cls with the prefix "Error: " in red color,
-   and then exits the program with error code 1.
-   It is used to print error messages in pang programs. */
+/* writes a string to stderr with the prefix "Error: " in red color,
+   and then exits the program with error code 1. */
 macro eputs
     "\x1b[38;2;200;0;0mError: "
     bufs purge bufs // get color and message into buffer
