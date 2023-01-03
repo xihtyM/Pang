@@ -62,7 +62,7 @@ void pang_mkdir(const char *path) {
     }
 
     if (_mkdir(path) != 0) {
-        printf("Error: Failed to create directory. Make sure you are running as an administrator.\n");
+        printf("Error: Failed to create directory. Make sure you are running as an administrator.\nError: %s", strerror(errno));
         exit(1);
     }
 }
@@ -167,7 +167,7 @@ int main(void) {
     FILE *bat = fopen(bat_path, "w");
     
     if (bat == NULL) {
-        printf("Error: Failed to create batch file.\n");
+        printf("Error: Failed to create batch file. %s\n", strerror(errno));
         exit(1);
     }
     
