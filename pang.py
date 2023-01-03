@@ -276,13 +276,16 @@ class Lexer():
 
         if self._peek() == "\'":
             systemfile = True
-        elif self._get() != "\"":
+        elif self._peek() != "\"":
             Croak(
                 ErrorType.Syntax,
                 "must include a string or system library in file \"%s\" (detected at line: %d)" % (
                     self.fn, self.line(self.index)
                 )
             )
+        
+        # Add 1 to index to skip \" or \' character
+        self.index += 1
         
         include_filename = self._get()
 
@@ -297,7 +300,7 @@ class Lexer():
                     )
                 )
         
-        # Add 1 to index to skip \" or > character
+        # Add 1 to index to skip \" or \' character
         self.index += 1
 
         if systemfile:
