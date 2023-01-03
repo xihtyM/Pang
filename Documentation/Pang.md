@@ -30,7 +30,7 @@ Pang is a stack-based, interpreted and compiled programming language.
 - Whenever an item is refferred to, it just means an integer that is on the stack.
 
 # Pang keywords
-Pang has currently got 18 reserved keywords, all of them are listed below with descriptions.
+Pang has currently got 22 reserved keywords, all of them are listed below with descriptions.
 * `xor`
     - Pops 2 items from the end of the stack. Performs a bitwise exclusive or operation on them, pushing the result.
 * `bor`
@@ -70,3 +70,11 @@ Pang has currently got 18 reserved keywords, all of them are listed below with d
     - Pops the numerator and pops the denominator from the front of the stack in that order. Pushes the floordiv and remainder of the numerator/denominator.
 * `syscall`
     - Pops 1 item from the stack, checks for the syscall number and executes a specific syscall based off the number (see syscalls for info about all the syscalls in pang).
+* `do`
+    - Block that must be ended.
+* `end`
+    - Ends `do` block or `macro`.
+* `macro`
+    - C-style macro (takes arguments pushed onto the stack). Expands with the preprocessor.
+* `include`
+    - C-style include. `"file.pang"` includes file.pang in the current working directory, `'file.pang'` includes file.pang from the system libraries (installed in %pang%).
