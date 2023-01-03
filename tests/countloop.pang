@@ -1,4 +1,4 @@
-include "std.pang"
+include 'std.pang'
 
 100 for do
     "Hello, World!\n" puts purge

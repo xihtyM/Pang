@@ -1,6 +1,6 @@
 /* Standard pang library */
 
-include "os.pang"
+include 'os.pang'
 
 /* Gates */
 

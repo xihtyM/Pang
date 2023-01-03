@@ -1,4 +1,4 @@
-include "std.pang"
+include 'std.pang'
 
 macro fib // args: int n
     0 swap 1 swap // stack: 0, 1, n

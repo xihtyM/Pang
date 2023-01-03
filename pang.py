@@ -5,6 +5,8 @@ from typing import Union
 import sys
 import os
 
+PANG_SYS = os.path.dirname(os.path.realpath(__file__)) + "\\"
+
 try:
     sys.set_int_max_str_digits(2147483647)
 except AttributeError:
@@ -270,17 +272,21 @@ class Lexer():
             if not self._get():
                 assert False, "Must include a file"
 
-        if self._get() not in "\"\'":
+        systemfile = False
+
+        if self._peek() == "\'":
+            systemfile = True
+        elif self._get() != "\"":
             Croak(
                 ErrorType.Syntax,
-                "must include a string in file \"%s\" (detected at line: %d)" % (
+                "must include a string or system library in file \"%s\" (detected at line: %d)" % (
                     self.fn, self.line(self.index)
                 )
             )
         
         include_filename = self._get()
 
-        while self._peek() not in "\"\'":
+        while (self._peek() != "\"" and not systemfile) or (self._peek() != "\'" and systemfile):
             include_filename += self._peek()
 
             if not self._get():
@@ -291,8 +297,11 @@ class Lexer():
                     )
                 )
         
-        # Add 1 to index to skip \"\' character
+        # Add 1 to index to skip \" or > character
         self.index += 1
+
+        if systemfile:
+            include_filename = PANG_SYS + include_filename
 
         # skip as has already been included
         if include_filename in self.includes:
@@ -1063,9 +1072,7 @@ def join(l: list[int]) -> str:
     for ch in l:
         out += chr(ch)
     
-    return out    
-
-#print(open_flag_to_str(0x008 | 0x100))
+    return out
 
 class Interpreter():
     """ Experimental class for interpreting pang """
@@ -1144,12 +1151,12 @@ class Interpreter():
     
     def syscall_read(self) -> None:
         fd = self.mem.pop()
-
+        
         contents = self.open_files[
             fd].read()
         
         self.mem += [ord(ch) for ch in contents]
-        self.mem += [len(contents), fd]
+        self.mem.append(len(contents))
     
     def syscall_write(self) -> None:        
         file = self.open_files[self.mem.pop()]
@@ -1367,7 +1374,7 @@ def run_program() -> None:
         st = perf_counter()
         interpret = Interpreter(args, lex_src.toks)
         interpret.run()
-        print(f"Program finished in {perf_counter() - st} seconds (exit code: {interpret.exit_code}).")
+        print(f"\nProgram finished in {perf_counter() - st} seconds (exit code: {interpret.exit_code}).")
 
 if __name__ == "__main__":
     run_program()

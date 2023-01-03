@@ -1,4 +1,4 @@
-include "std.pang"
+include 'std.pang'
 
 while do
     putln purge length

@@ -1,7 +1,27 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <direct.h>
 #include <urlmon.h>
 #include <locale.h>
+#include <sys/stat.h>
+
+bool SetPermanentEnvironmentVariable(LPCSTR value, LPCSTR data) {
+    HKEY hKey;
+    LPCSTR keyPath = "System\\CurrentControlSet\\Control\\Session Manager\\Environment";
+    LSTATUS lOpenStatus = RegOpenKeyExA(HKEY_LOCAL_MACHINE, keyPath, 0, KEY_ALL_ACCESS, &hKey);
+
+    if (lOpenStatus == ERROR_SUCCESS) {
+        LSTATUS lSetStatus = RegSetValueExA(hKey, value, 0, REG_SZ,(LPBYTE)data, strlen(data) + 1);
+        RegCloseKey(hKey);
+
+        if (lSetStatus == ERROR_SUCCESS) {
+            SendMessageTimeoutA(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)"Environment", SMTO_BLOCK, 100, NULL);
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void download(const char *url, const char *file) {
     HRESULT hr;
@@ -26,6 +46,21 @@ void download(const char *url, const char *file) {
 #define pang_download(path, file) download(GIT_LINK file, path file)
 
 void pang_mkdir(const char *path) {
+    struct stat path_stat;
+    stat(path, &path_stat);
+
+    if ((path_stat.st_mode & S_IFMT) == S_IFDIR) {
+        char *command = malloc((strlen(path) * 2) + 36);
+
+        strcpy(command, "del /f /s /q ");
+        strcat(command, path);
+        strcat(command, " 1>nul && rmdir /s /q ");
+        strcat(command, path);
+
+        system(command);
+        free(command);
+    }
+
     if (_mkdir(path) != 0) {
         printf("Error: Failed to create directory. Make sure you are running as an administrator.\n");
         exit(1);
@@ -64,7 +99,7 @@ void download_pangfiles(char *files) {
     int lines = 0;
     char *filename;
 
-    while ((filename = getline(files, lines++)) != "") {
+    while (strlen(filename = getline(files, lines++)) > 0) {
         int url_length = strlen(GIT_LINK) + strlen(filename);
         char *url = malloc(url_length + 1);
         
@@ -91,7 +126,8 @@ void download_pangfiles(char *files) {
 
 int main(void) {
     setlocale(LC_ALL, ".utf-8");
-    _chdir(getenv("ProgramFiles"));
+
+    _chdir(getenv("AppData"));
 
     pang_mkdir("Pang");
     pang_download("Pang\\", "files");
@@ -116,6 +152,28 @@ int main(void) {
     download_pangfiles(files);
     free(files);
     remove("Pang\\files");
+
+    char *pang_path = malloc(strlen(getenv("AppData")) + strlen("\\Pang") + 1);
+    strcpy(pang_path, getenv("AppData"));
+    strcat(pang_path, "\\Pang");
+
+    SetPermanentEnvironmentVariable("pang", pang_path);
+    free(pang_path);
+
+    char *bat_path = malloc(strlen(getenv("windir")) + 19);
+    strcpy(bat_path, getenv("windir"));
+    strcat(bat_path, "\\System32\\pang.bat");
+
+    FILE *bat = fopen(bat_path, "w");
+    
+    if (bat == NULL) {
+        printf("Error: Failed to create batch file.\n");
+        exit(1);
+    }
+    
+    fwrite("@echo off\npython3 \"%pang%\\pang.py\" %*", strlen("@echo off\npython3 \"%pang%\\pang.py\" %*"), 1, bat);
+    fclose(bat);
+    free(bat_path);
 
     return 0;
 }
