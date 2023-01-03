@@ -26,6 +26,6 @@ Compiler: Incomplete
     - Unicode: Yes
 
 Installer: Incomplete
-    - Working executable: No
-    - Updating old versions: No
+    - Working executable: Yes
+    - Updating old versions: Yes
     - Unix support: No
