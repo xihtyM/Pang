@@ -73,11 +73,11 @@ class TokenType(Enum):
 
 @dataclass
 class Token():
-    typ: TokenType
-    raw: str
-    value: Union[str, int]
-    filename: str
-    ln: int
+    typ: TokenType = TokenType.NONE
+    raw: str = ""
+    value: Union[str, int] = ""
+    filename: str = ""
+    ln: int = -1
 
 T_READLINE = 0
 T_READALL = -1
@@ -384,7 +384,7 @@ class Lexer():
         macro_name = False
         skip_end = 0
         cur_name = ""
-        cur_tok = Token(TokenType.NONE, "", "", "", -1)
+        cur_tok = Token()
         cur_toks = []
         macros = {}
 
@@ -557,12 +557,18 @@ def get_syscall(num: int) -> str:
 
     return syscalls[num]
 
+def remove_newline(_Str: str) -> str:
+    seperated = _Str.split("\n")
+    if not seperated[-1]:
+        seperated = seperated[:-1]
+
+    return "\n".join(seperated[:-1]) + "\n"
+
 def compile_ops(toks: list[Token], optimise: bool) -> str:
     """ Compiles to C++ """
     
     if len(toks) <= 0:
         Croak(ErrorType.Compile, "nothing to compile")
-
 
     out = ""
 
@@ -570,73 +576,91 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
     prev_int = []
     direct_syscall = False
     direct_buf = False
-    direct_push_string = False
     direct_divmod = False
+    prev = Token()
 
     for tok in toks:
+        drop_prev_int = True
         if tok.typ == TokenType.STR:
-            direct_push_string = True
-            out += "%sPUSH_STRING(&vars.mem, %s);\n" % (" " * indent_width, tok.raw)
+            for ch in tok.value:
+                out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, ord(ch))
+                if optimise:
+                    prev_int.append(ord(ch))
+            
+            out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, len(tok.value))
+
+            if optimise:
+                prev_int.append(len(tok.value))
+                drop_prev_int = False
         elif tok.typ == TokenType.INT:
             out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
 
             if optimise:
                 prev_int.append(tok.value)
-                continue
-        
+                drop_prev_int = False
         elif tok.typ == TokenType.BUF:
             if prev_int:
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
-                out += " " * indent_width
+                out = remove_newline(out)
 
-                if prev_int[-1] == 0:
-                    out += "vars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1));\n"
+                if len(prev_int) >= 2:
+                    out = remove_newline(out)
+                    
+                    if prev_int[-1] == 1:
+                        out += "%svars.buf += %d;\n" % (" " * indent_width, prev_int.pop(-2))
+                    elif prev_int[-1] == 0:
+                        out += "%svars.buf += \"%d\";\n" % (" " * indent_width, prev_int.pop(-2))
+                    else:
+                        Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
+
+                elif prev_int[-1] == 0:
+                    out += "%svars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1));\n" % (" " * indent_width)
                 elif prev_int[-1] == 1:
-                    out += "vars.buf += vars.mem.at(vars.mem.size() - 1);\n"
+                    out += "%svars.buf += vars.mem.at(vars.mem.size() - 1);\n" % (" " * indent_width)
                 else:
                     Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
 
-                prev_int = []
-                continue
-            
-            direct_buf = True
-            out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
-        
+                prev_int.pop()
+                drop_prev_int = False
+            else:
+                direct_buf = True
+                out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
         elif tok.typ == TokenType.DUP:
             if prev_int:
                 out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-1])
                 prev_int.append(prev_int[-1])
-                continue
-
-            out += "%sPANG_DUP;\n" % (" " * indent_width)
+                drop_prev_int = False
+            else:
+                out += "%sPANG_DUP;\n" % (" " * indent_width)
         elif tok.typ == TokenType.BACK:
             out += "%sPANG_BACK;\n" % (" " * indent_width)
         elif tok.typ == TokenType.FRONT:
             out += "%sPANG_FRONT;\n" % (" " * indent_width)
         elif tok.typ == TokenType.SWAP:
-            if len(prev_int) >= 2:
+            if prev.typ == TokenType.SWAP:
+                out = remove_newline(out)
+            elif len(prev_int) >= 2:
                 # Remove two newlines
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out = remove_newline(out)
+                out = remove_newline(out)
 
                 out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-1])
                 out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-2])
 
                 prev_int[-1], prev_int[-2] = prev_int[-2], prev_int[-1]
 
-                continue
-
-            out += "%sPANG_SWAP;\n" % (" " * indent_width)
+                drop_prev_int = False
+            else:
+                out += "%sPANG_SWAP;\n" % (" " * indent_width)
         
         elif tok.typ == TokenType.ADD:
             if prev_int:
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out = remove_newline(out)
 
                 if len(prev_int) == 1:
                     out += "%sPUSH_INTEGER(pop(&vars.mem) + %d);\n" % (" " * indent_width, prev_int[-1])
                     prev_int = []
                 else:
-                    out = out[:(len(out) - out[::-1].find("\n", 2))]
+                    out = remove_newline(out)
                     out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-2] + prev_int[-1])
                     
                     if len(prev_int) <= 2:
@@ -644,37 +668,46 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                     else:
                         prev_int = prev_int[:-2] + [prev_int[-2] + prev_int[-1]]
 
-                continue
-            
-            out += "%sPANG_ADD;\n" % (" " * indent_width)
+                drop_prev_int = False
+            else:
+                if prev.typ == TokenType.SWAP:
+                    out = remove_newline(out)
+                out += "%sPANG_ADD;\n" % (" " * indent_width)
         elif tok.typ == TokenType.SUB:
             if prev_int:
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out = remove_newline(out)
                 
                 if len(prev_int) == 1:
                     out += "%sPUSH_INTEGER(pop(&vars.mem) - %d);\n" % (" " * indent_width, prev_int[-1])
                     prev_int = []
                 else:
-                    out = out[:(len(out) - out[::-1].find("\n", 2))]
+                    out = remove_newline(out)
                     out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-2] - prev_int[-1])
 
                     if len(prev_int) <= 2:
                         prev_int = [prev_int[-2] - prev_int[-1]]
                     else:
                         prev_int = prev_int[:-2] + [prev_int[-2] - prev_int[-1]]
-                
-                continue
-            
-            out += "%sPANG_SUB;\n" % (" " * indent_width)
+                drop_prev_int = False
+            else:
+                out += "%sPANG_SUB;\n" % (" " * indent_width)
         elif tok.typ == TokenType.MUL:
             if prev_int:
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                cut = out[-out[::-1].find("\n"):]
+                out = remove_newline(out)
 
                 if len(prev_int) == 1:
-                    out += "%sPUSH_INTEGER(pop(&vars.mem) * %d);\n" % (" " * indent_width, prev_int[-1])
+                    binary = bin(prev_int[-1])[2:][::-1]
+                    if prev_int[-1] == 1:
+                        out += cut
+                    elif binary.count("1") == 1:
+                        out += "%sPUSH_INTEGER(pop(&vars.mem) << %d);\n" % (" " * indent_width, binary.find("1"))
+                    else:
+                        out += "%sPUSH_INTEGER(pop(&vars.mem) * %d);\n" % (" " * indent_width, prev_int[-1])
+                    
                     prev_int = []
                 else:
-                    out = out[:(len(out) - out[::-1].find("\n", 2))]
+                    out = remove_newline(out)
                     out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-2] * prev_int[-1])
 
                     if len(prev_int) <= 2:
@@ -682,22 +715,81 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                     else:
                         prev_int = prev_int[:-2] + [prev_int[-2] * prev_int[-1]]
                 
-                continue
-            
-            out += "%sPANG_MUL;\n" % (" " * indent_width)
+                drop_prev_int = False
+            else:
+                out += "%sPANG_MUL;\n" % (" " * indent_width)
         elif tok.typ == TokenType.DIVMOD:
             direct_divmod = True
 
             out += "%sPANG_DIVMOD(&vars.mem);\n" % (" " * indent_width)
-
         elif tok.typ == TokenType.GREATER_THAN:
-            out += "%sPANG_GT;\n" % (" " * indent_width)
+            if prev_int:
+                out = remove_newline(out)
+
+                if len(prev_int) == 1:
+                    out += "%sPUSH_INTEGER(pop(&vars.mem) < %d);\n" % (" " * indent_width, prev_int.pop())
+                else:
+                    out = remove_newline(out)
+                    out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, (prev_int[-2] < prev_int[-1]))
+                    prev_int[-1] = prev_int.pop(-2) < prev_int[-1]
+                
+                drop_prev_int = False
+            elif prev.typ == TokenType.SWAP:
+                out = remove_newline(out)
+                out += "%sPANG_ST;\n" % (" " * indent_width)
+            else:
+                out += "%sPANG_GT;\n" % (" " * indent_width)
         elif tok.typ == TokenType.SMALLER_THAN:
-            out += "%sPANG_ST;\n" % (" " * indent_width)
+            if prev_int:
+                out = remove_newline(out)
+
+                if len(prev_int) == 1:
+                    out += "%sPUSH_INTEGER(pop(&vars.mem) > %d);\n" % (" " * indent_width, prev_int.pop())
+                else:
+                    out = remove_newline(out)
+                    out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, (prev_int[-2] > prev_int[-1]))
+                    prev_int[-1] = prev_int.pop(-2) > prev_int[-1]
+                
+                drop_prev_int = False
+            elif prev.typ == TokenType.SWAP:
+                out = remove_newline(out)
+                out += "%sPANG_GT;\n" % (" " * indent_width)
+            else:
+                out += "%sPANG_ST;\n" % (" " * indent_width)
         elif tok.typ == TokenType.EQUAL:
-            out += "%sPANG_EQU;\n" % (" " * indent_width)
+            if prev.typ == TokenType.SWAP:
+                out = remove_newline(out)
+            
+            if prev_int:
+                out = remove_newline(out)
+
+                if len(prev_int) == 1:
+                    out += "%sPUSH_INTEGER(pop(&vars.mem) == %d);\n" % (" " * indent_width, prev_int.pop())
+                else:
+                    out = remove_newline(out)
+                    out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, (prev_int[-2] == prev_int[-1]))
+                    prev_int[-1] = prev_int.pop(-2) == prev_int[-1]
+            
+                drop_prev_int = False
+            else:
+                out += "%sPANG_EQU;\n" % (" " * indent_width)
         elif tok.typ == TokenType.NOT_EQUAL:
-            out += "%sPANG_NEQU;\n" % (" " * indent_width)
+            if prev.typ == TokenType.SWAP:
+                out = remove_newline(out)
+            
+            if prev_int:
+                out = remove_newline(out)
+
+                if len(prev_int) == 1:
+                    out += "%sPUSH_INTEGER(pop(&vars.mem) != %d);\n" % (" " * indent_width, prev_int.pop())
+                else:
+                    out = remove_newline(out)
+                    out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, (prev_int[-2] != prev_int[-1]))
+                    prev_int[-1] = prev_int.pop(-2) != prev_int[-1]
+                
+                drop_prev_int = False
+            else:
+                out += "%sPANG_NEQU;\n" % (" " * indent_width)
 
         elif tok.typ == TokenType.WHILE:
             out += "\n%swhile (pop(&vars.mem)) {\n" % (" " * indent_width)
@@ -712,17 +804,17 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
 
         elif tok.typ == TokenType.SYSCALL:
             if prev_int:
-                out = out[:(len(out) - out[::-1].find("\n", 2))]
+                out = remove_newline(out)
 
                 out += "%s%s" % (" " * indent_width, get_syscall(prev_int[-1]))
-                
-                prev_int = []
-                continue
-
-            direct_syscall = True
-            out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
+            else:
+                direct_syscall = True
+                out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
         
-        prev_int = []
+        if drop_prev_int:
+            prev_int = []
+        
+        prev = tok
     
     start =  "#include <iostream>\n"
     start += "#include <fstream>\n"
@@ -801,14 +893,6 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
         start += "\n"
         start += "    stack->push_back(result.quot);\n"
         start += "    stack->push_back(result.rem);\n"
-        start += "}\n"
-        start += "\n"
-
-    if direct_push_string or not optimise:
-        start += "inline void PUSH_STRING(std::vector<int64_t> *mem, std::string buf) {\n"
-        start += "    for (auto ch: buf) mem->push_back(ch);\n"
-        start += "\n"
-        start += "    mem->push_back(buf.length());\n"
         start += "}\n"
         start += "\n"
     
@@ -1060,6 +1144,7 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
     start += "\n"
     start += "        vars.mem.push_back(arg.length());\n"
     start += "    }\n"
+    start += "\n"
     start += "    vars.mem.push_back(argc);\n\n"
     
     return start + out + "}"
@@ -1112,6 +1197,9 @@ class Interpreter():
                 self.mem.append(ord(ch))
             
             self.mem.append(len(value))
+    
+    #def pointer(self, address: pangint) -> None:
+    #    address.ptr = True
 
     def syscall(self) -> None:
         syscall_number = Syscall(self.mem.pop())
@@ -1125,7 +1213,7 @@ class Interpreter():
         elif syscall_number == Syscall.READ:
             self.syscall_read()
         elif syscall_number == Syscall.CLOSE:
-            self.syscall_close()
+            self.open_files[self.mem.pop()].close()
         elif syscall_number == Syscall.SLEEP:
             sleep(self.mem.pop() / 1000)
         elif syscall_number == Syscall.RESIZE:
@@ -1134,6 +1222,11 @@ class Interpreter():
             self.mem.append(self.mem[self.mem.pop()])
         elif syscall_number == Syscall.LENGTH:
             self.mem.append(len(self.mem))
+
+    def syscall_chdir(self) -> None:
+        length = self.mem.pop()
+        os.chdir(join(self.mem[-length:]))
+        self.mem = self.mem[:-length]
 
     def syscall_open(self) -> None:
         length = self.mem.pop()
@@ -1163,9 +1256,6 @@ class Interpreter():
         file.flush()
         
         self.o_buf = ""
-
-    def syscall_close(self) -> None:
-        self.open_files.pop(self.mem.pop())
 
     def buf(self) -> None:
         to_put = self.mem.pop()
@@ -1312,6 +1402,7 @@ def run_program() -> None:
 
     args = []
     outname = "a"
+    optimise_flag = " "
     
     for arg in sys.argv:
         if arg_st:
@@ -1324,8 +1415,14 @@ def run_program() -> None:
                 Croak(ErrorType.Command, "cannot have two output names...")
             
             filename = True
-        elif comp and arg == "-O":
+        elif comp and arg.startswith("-O"):
+            if len(arg) != 3:
+                Croak(ErrorType.Command, "invalid flag %s" % arg)
+            elif not arg[2].isnumeric():
+                Croak(ErrorType.Command, "invalid flag %s" % arg)
+            
             optimise = True
+            optimise_flag = " %s" % arg
         elif comp and arg == "-S":
             asm = True
         elif arg in ("-c", "-com"):
@@ -1358,7 +1455,7 @@ def run_program() -> None:
         command = "g++ %s -o %s -Werror" % (name, outname)
 
         if optimise:
-            command += " -O3"
+            command += "%s" % optimise_flag
         if asm:
             command += " -S"
         

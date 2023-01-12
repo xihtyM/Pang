@@ -8,7 +8,7 @@ Pang is a stack-based, interpreted and compiled programming language.
     - Output file name for compilation.
 * `-S`
     - Generates assembly code.
-* `-O`
+* `-O1`, `-O2` or `-O3`
     - Optimises code.
 * `-C` or `-cpp`
     - Generates C++ code.

@@ -49,21 +49,11 @@ void pang_mkdir(const char *path) {
     struct stat path_stat;
     stat(path, &path_stat);
 
-    if ((path_stat.st_mode & S_IFMT) == S_IFDIR) {
-        char *command = malloc((strlen(path) * 2) + 36);
-
-        strcpy(command, "del /f /s /q ");
-        strcat(command, path);
-        strcat(command, " 1>nul && rmdir /s /q ");
-        strcat(command, path);
-
-        system(command);
-        free(command);
-    }
-
-    if (_mkdir(path) != 0) {
-        printf("Error: Failed to create directory. Make sure you are running as an administrator.\nError: %s", strerror(errno));
-        exit(1);
+    if ((path_stat.st_mode & S_IFMT) != S_IFDIR) {
+        if (_mkdir(path) != 0) {
+            printf("Error: Failed to create directory. Make sure you are running as an administrator.\nError: %s", strerror(errno));
+            exit(1);
+        }
     }
 }
 
