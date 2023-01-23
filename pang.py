@@ -7,6 +7,12 @@ import os
 
 PANG_SYS = os.path.dirname(os.path.realpath(__file__)) + "\\"
 
+NEWLINE_SYSCALLS = [
+    0x005, 0x006,
+    0x007, 0x008,
+    0x012,
+]
+
 try:
     sys.set_int_max_str_digits(2147483647)
 except AttributeError:
@@ -509,6 +515,7 @@ class Syscall(Enum):
     GETPID = auto() # Unimplemented
     ALARM = auto() # Unimplemented
     SLEEP = auto()
+    #TIME = auto()
 
     # Communication
     PIPE = auto() # Unimplemented
@@ -539,18 +546,29 @@ def find_end(ind: int, ops: list[Token]) -> int:
     
     Croak(ErrorType.Syntax, "expected end (at line %d)" % (ops[ind].ln))
 
-def get_syscall(num: int) -> str:
+def get_syscall(num: int, last: str = "pop(&vars.mem)") -> str:
     syscalls = {
-        0x002: "exit(pop(&vars.mem));\n",
+        0x002: "exit(%s);\n" % last,
         0x005: "PANG_OPEN(&vars);\n",
         0x006: "PANG_READ(&vars);\n",
         0x007: "PANG_WRITE(&vars);\n",
         0x008: "PANG_CLOSE(&vars);\n",
-        0x00C: "std::this_thread::sleep_for(std::chrono::milliseconds(pop(&vars.mem)));\n",
-        0x010: "vars.mem.resize(((int64_t) vars.mem.size() - 1) - pop(&vars.mem));\n",
-        0x011: "if (vars.mem.back() < 0) { vars.mem.push_back(pop(&vars.mem) + vars.mem.size()); } vars.mem.push_back(vars.mem.at(pop(&vars.mem)));\n",
+        0x00C: "std::this_thread::sleep_for(std::chrono::milliseconds(%s));\n" % last,
+        0x010: "if (vars.mem.back() > 0) { vars.mem.resize(((int64_t) vars.mem.size()) - pop(&vars.mem)); } else { vars.mem.resize(-pop(&vars.mem)); }\n",
+        0x011: "if (vars.mem.back() < 0) { vars.mem.back() += vars.mem.size() - 1; } vars.mem.push_back(vars.mem.at(%s));\n" % last,
         0x012: "vars.mem.push_back(vars.mem.size());\n"
     }
+
+    if last != "pop(&vars.mem)":
+        last = int(last)
+    
+    if num in (0x010, 0x011) and type(last) == int:
+        if last > 0:
+            syscalls[0x010] = "vars.mem.resize(((int64_t) vars.mem.size()) - %d);\n" % last
+            syscalls[0x011] = "vars.mem.push_back(vars.mem.at(%d));\n" % last
+        else:
+            syscalls[0x010] = "vars.mem.resize(-%d);\n" % last
+            syscalls[0x011] = "vars.mem.back() += vars.mem.size() - 1; vars.mem.push_back(vars.mem.at(%d));\n" % last
 
     if num not in syscalls:
         Croak(ErrorType.Stack, "Syscall number not valid. (number: %d)" % num)
@@ -564,33 +582,45 @@ def remove_newline(_Str: str) -> str:
 
     return "\n".join(seperated[:-1]) + "\n"
 
-def compile_ops(toks: list[Token], optimise: bool) -> str:
+def compile_ops(toks: list, optimise: bool) -> str:
     """ Compiles to C++ """
     
     if len(toks) <= 0:
         Croak(ErrorType.Compile, "nothing to compile")
 
+
     out = ""
 
     indent_width = 4
     prev_int = []
+    prev = Token()
     direct_syscall = False
     direct_buf = False
     direct_divmod = False
-    prev = Token()
+    direct_sleep = False
+    direct_open = False
+    direct_read = False
+    direct_write = False
+    direct_close = False
 
     for tok in toks:
         drop_prev_int = True
-        if tok.typ == TokenType.STR:
-            for ch in tok.value:
-                out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, ord(ch))
-                if optimise:
-                    prev_int.append(ord(ch))
-            
-            out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, len(tok.value))
 
+        if tok.typ == TokenType.STR:
+            if prev.typ == TokenType.STR:
+                out = remove_newline(out)
+                tok.value = prev.value + tok.value
+
+            chars = [ord(ch) for ch in tok.value]
+            
+            out += "%svars.mem.insert(vars.mem.end(), {%s, %d});\n" % (
+                " " * indent_width,
+                ", ".join([str(ch) for ch in chars]),
+                len(tok.value)
+            )
+                
             if optimise:
-                prev_int.append(len(tok.value))
+                prev_int += chars + [len(tok.value)]
                 drop_prev_int = False
         elif tok.typ == TokenType.INT:
             out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
@@ -613,9 +643,9 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                         Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
 
                 elif prev_int[-1] == 0:
-                    out += "%svars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1));\n" % (" " * indent_width)
+                    out += "%svars.buf += std::to_string(vars.mem.back());\n" % (" " * indent_width)
                 elif prev_int[-1] == 1:
-                    out += "%svars.buf += vars.mem.at(vars.mem.size() - 1);\n" % (" " * indent_width)
+                    out += "%svars.buf += vars.mem.back();\n" % (" " * indent_width)
                 else:
                     Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
 
@@ -657,7 +687,7 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                 out = remove_newline(out)
 
                 if len(prev_int) == 1:
-                    out += "%sPUSH_INTEGER(pop(&vars.mem) + %d);\n" % (" " * indent_width, prev_int[-1])
+                    out += "%svars.mem.back() += %d;\n" % (" " * indent_width, prev_int[-1])
                     prev_int = []
                 else:
                     out = remove_newline(out)
@@ -678,7 +708,7 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                 out = remove_newline(out)
                 
                 if len(prev_int) == 1:
-                    out += "%sPUSH_INTEGER(pop(&vars.mem) - %d);\n" % (" " * indent_width, prev_int[-1])
+                    out += "%svars.mem.back() -= %d;\n" % (" " * indent_width, prev_int[-1])
                     prev_int = []
                 else:
                     out = remove_newline(out)
@@ -701,9 +731,9 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
                     if prev_int[-1] == 1:
                         out += cut
                     elif binary.count("1") == 1:
-                        out += "%sPUSH_INTEGER(pop(&vars.mem) << %d);\n" % (" " * indent_width, binary.find("1"))
+                        out += "%svars.mem.back() <<= %d;\n" % (" " * indent_width, binary.find("1"))
                     else:
-                        out += "%sPUSH_INTEGER(pop(&vars.mem) * %d);\n" % (" " * indent_width, prev_int[-1])
+                        out += "%svars.mem.back() *= %d;\n" % (" " * indent_width, prev_int[-1])
                     
                     prev_int = []
                 else:
@@ -803,17 +833,36 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
             out += "%s}\n\n" % (" " * indent_width)
 
         elif tok.typ == TokenType.SYSCALL:
-            if prev_int:
+            if len(prev_int) >= 2 and prev_int[-1] not in NEWLINE_SYSCALLS:
+                if prev_int[-1] == Syscall.SLEEP.value:
+                    direct_sleep = True
+                    
+                out = remove_newline(out)
                 out = remove_newline(out)
 
-                out += "%s%s" % (" " * indent_width, get_syscall(prev_int[-1]))
+                out += "%s%s" % ((" " * indent_width, get_syscall(prev_int.pop(), str(prev_int.pop()))))
+            elif prev_int:
+                if prev_int[-1] == Syscall.SLEEP.value:
+                    direct_sleep = True
+                elif prev_int[-1] == Syscall.OPEN.value:
+                    direct_open = True
+                elif prev_int[-1] == Syscall.READ.value:
+                    direct_read = True
+                elif prev_int[-1] == Syscall.WRITE.value:
+                    direct_write = True
+                elif prev_int[-1] == Syscall.CLOSE.value:
+                    direct_close = True
+                    
+                out = remove_newline(out)
+
+                out += "%s%s" % (" " * indent_width, get_syscall(prev_int.pop()))
             else:
                 direct_syscall = True
                 out += "%sPANG_SYSCALL(&vars);\n" % (" " * indent_width)
         
         if drop_prev_int:
             prev_int = []
-        
+
         prev = tok
     
     start =  "#include <iostream>\n"
@@ -821,9 +870,12 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
     start += "#include <vector>\n"
     start += "#include <string>\n"
     start += "\n"
-    start += "#include <chrono>\n"
-    start += "#include <thread>\n"
-    start += "\n"
+    
+    if direct_syscall or direct_sleep or not optimise:
+        start += "#include <chrono>\n"
+        start += "#include <thread>\n"
+        start += "\n"
+        
     start += "#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)\n"
     start += "#define ON_WINDOWS\n"
     start += "#include <locale.h>\n"
@@ -895,176 +947,185 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
         start += "    stack->push_back(result.rem);\n"
         start += "}\n"
         start += "\n"
-    
-    start += "std::ios_base::openmode flags_to_mode(std::string flags) {\n"
-    start += "    if (flags == \"r\") {\n"
-    start += "        return std::ios::in;\n"
-    start += "    } else if (flags == \"w\") {\n"
-    start += "        return std::ios::out | std::ios::trunc;\n"
-    start += "    } else if (flags == \"a\") {\n"
-    start += "        return std::ios::out | std::ios::app;\n"
-    start += "    } else if (flags == \"r+\") {\n"
-    start += "        return std::ios::out | std::ios::in;\n"
-    start += "    } else if (flags == \"w+\") {\n"
-    start += "        return std::ios::out | std::ios::in | std::ios::trunc;\n"
-    start += "    } else if (flags == \"a+\") {\n"
-    start += "        return std::ios::out | std::ios::in | std::ios::app;\n"
-    start += "    } else {\n"
-    start += "        std::cerr << \"FlagError: Invalid flag for open \\\"\"\n"
-    start += "                  << flags\n"
-    start += "                  << \"\\\".\\n\";\n"
-    start += "        exit(1);\n"
-    start += "    }\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PANG_OPEN(Variables *vars) {\n"
-    start += "    int64_t length = pop(&vars->mem);\n"
-    start += "    std::string flags(vars->mem.end() - length, vars->mem.end());\n"
-    start += "    vars->mem.resize(vars->mem.size() - length);\n"
-    start += "\n"
-    start += "    length = pop(&vars->mem);\n"
-    start += "    std::string filename(vars->mem.end() - length, vars->mem.end());\n"
-    start += "    vars->mem.resize(vars->mem.size() - length);\n"
-    start += "\n"
-    start += "    vars->mem.push_back(vars->open_files.size() + 3);\n"
-    start += "\n"
-    start += "    auto mode = flags_to_mode(flags);\n"
-    start += "\n"
-    start += "    vars->open_files\n"
-    start += "        .push_back(fstream(filename, mode));\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PANG_READ(Variables *vars) {\n"
-    start += "    int64_t fd = pop(&vars->mem) - 3;\n"
-    start += "    int64_t read_typ = pop(&vars->mem);\n"
-    start += "\n"
-    start += "    if (fd >= (int64_t) vars->open_files.size()) {\n"
-    start += "        std::cerr << \"FileError: Invalid file descriptor - \" << fd << \'\\n\';\n"
-    start += "        exit(1);\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    if (fd != -3 && fd < 0) {\n"
-    start += "        std::cerr << \"FileError: Invalid file descriptor. - \" << fd << \'\\n\';\n"
-    start += "        exit(1);\n"
-    start += "    } else if (fd == -3) {\n"
-    start += "        std::string contents = \"\";\n"
-    start += "\n"
-    start += "        if (read_typ == READLINE) {\n"
-    start += "            std::getline(std::cin, contents);\n"
-    start += "        } else {\n"
-    start += "            while (true) {\n"
-    start += "                char *buf = new char[1];\n"
-    start += "                std::cin.read(buf, 1);\n"
-    start += "\n"
-    start += "                delete[] buf;\n"
-    start += "            }\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        for (auto ch: contents) {\n"
-    start += "            vars->mem.push_back(ch);\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        vars->mem.push_back(contents.length());\n"
-    start += "\n"
-    start += "        return;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    fstream *file_ptr = &vars->open_files.at(fd);\n"
-    start += "\n"
-    start += "    if (!(*file_ptr)) {\n"
-    start += "        std::cerr << \"FileError: Invalid file descriptor - \" << fd << \'\\n\';"
-    start += "        exit(1);\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    std::string contents = \"\";\n"
-    start += "\n"
-    start += "    if (read_typ == READLINE) {\n"
-    start += "        std::getline(*file_ptr, contents);\n"
-    start += "    } else {\n"
-    start += "        file_ptr->seekg(0, file_ptr->end);\n"
-    start += "        size_t length = file_ptr->tellg();\n"
-    start += "        file_ptr->seekg(0, file_ptr->beg);\n"
-    start += "\n"
-    start += "        if (read_typ < length && read_typ != READALL) {\n"
-    start += "            length = read_typ;\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        if (!length) {\n"
-    start += "            vars->mem.push_back(0);\n"
-    start += "            return;\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        char *buf = new char[length];\n"
-    start += "\n"
-    start += "        file_ptr->read(buf, length);\n"
-    start += "\n"
-    start += "        if (!(*file_ptr)) {\n"
-    start += "            std::cerr << \"FileError: could not read from file.\\n\";\n"
-    start += "            exit(1);\n"
-    start += "        }\n"
-    start += "\n"
-    start += "        contents.assign(buf, length);\n"
-    start += "\n"
-    start += "        delete[] buf;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    for (auto ch: contents) {\n"
-    start += "        vars->mem.push_back(ch);\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    vars->mem.push_back(contents.length());\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PANG_WRITE(Variables *vars) {\n"
-    start += "    int64_t fd = pop(&vars->mem) - 3;\n"
-    start += "\n"
-    start += "    if (fd >= 0) {\n"
-    start += "        vars->open_files.at(fd) << vars->buf;\n"
-    start += "        vars->open_files.at(fd).flush();\n"
-    start += "        vars->buf = \"\";\n"
-    start += "\n"
-    start += "        return;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    switch (fd) {\n"
-    start += "        case -2: { std::cout << vars->buf; break; }\n"
-    start += "        case -1: { std::cerr << vars->buf; break; }\n"
-    start += "\n"
-    start += "        default: {\n"
-    start += "            std::cerr << \"FileError: Invalid file descriptor.\\n\";\n"
-    start += "            exit(1);\n"
-    start += "        }\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    vars->buf = \"\";\n"
-    start += "}\n"
-    start += "\n"
-    start += "void PANG_CLOSE(Variables *vars) {\n"
-    start += "    int64_t fd = pop(&vars->mem) - 3;\n"
-    start += "\n"
-    start += "    if (fd >= 0) {\n"
-    start += "        vars->open_files.at(fd).close();\n"
-    start += "        return;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    switch (fd) {\n"
-    start += "        case -3: { fclose(stdin); break; }\n"
-    start += "        case -2: { fclose(stdout); break; }\n"
-    start += "        case -1: { fclose(stderr); break; }\n"
-    start += "\n"
-    start += "        default: {\n"
-    start += "            std::cerr << \"FileError: Invalid file descriptor.\\n\";\n"
-    start += "            exit(1);\n"
-    start += "        }\n"
-    start += "    }\n"
-    start += "}\n"
-    start += "\n"
+
+    if direct_open or direct_syscall or not optimise:
+        start += "std::ios_base::openmode flags_to_mode(std::string flags) {\n"
+        start += "    if (flags == \"r\") {\n"
+        start += "        return std::ios::in;\n"
+        start += "    } else if (flags == \"w\") {\n"
+        start += "        return std::ios::out | std::ios::trunc;\n"
+        start += "    } else if (flags == \"a\") {\n"
+        start += "        return std::ios::out | std::ios::app;\n"
+        start += "    } else if (flags == \"r+\") {\n"
+        start += "        return std::ios::out | std::ios::in;\n"
+        start += "    } else if (flags == \"w+\") {\n"
+        start += "        return std::ios::out | std::ios::in | std::ios::trunc;\n"
+        start += "    } else if (flags == \"a+\") {\n"
+        start += "        return std::ios::out | std::ios::in | std::ios::app;\n"
+        start += "    } else {\n"
+        start += "        std::cerr << \"FlagError: Invalid flag for open \\\"\"\n"
+        start += "                  << flags\n"
+        start += "                  << \"\\\".\\n\";\n"
+        start += "        exit(1);\n"
+        start += "    }\n"
+        start += "}\n"
+        start += "\n"
+
+    if direct_open or direct_syscall or not optimise:
+        start += "void PANG_OPEN(Variables *vars) {\n"
+        start += "    int64_t length = pop(&vars->mem);\n"
+        start += "    std::string flags(vars->mem.end() - length, vars->mem.end());\n"
+        start += "    vars->mem.resize(vars->mem.size() - length);\n"
+        start += "\n"
+        start += "    length = pop(&vars->mem);\n"
+        start += "    std::string filename(vars->mem.end() - length, vars->mem.end());\n"
+        start += "    vars->mem.resize(vars->mem.size() - length);\n"
+        start += "\n"
+        start += "    vars->mem.push_back(vars->open_files.size() + 3);\n"
+        start += "\n"
+        start += "    auto mode = flags_to_mode(flags);\n"
+        start += "\n"
+        start += "    vars->open_files\n"
+        start += "        .push_back(fstream(filename, mode));\n"
+        start += "}\n"
+        start += "\n"
+
+    if direct_read or direct_syscall or not optimise:
+        start += "void PANG_READ(Variables *vars) {\n"
+        start += "    int64_t fd = pop(&vars->mem) - 3;\n"
+        start += "    int64_t read_typ = pop(&vars->mem);\n"
+        start += "\n"
+        start += "    if (fd >= (int64_t) vars->open_files.size()) {\n"
+        start += "        std::cerr << \"FileError: Invalid file descriptor - \" << fd << \'\\n\';\n"
+        start += "        exit(1);\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    if (fd != -3 && fd < 0) {\n"
+        start += "        std::cerr << \"FileError: Invalid file descriptor. - \" << fd << \'\\n\';\n"
+        start += "        exit(1);\n"
+        start += "    } else if (fd == -3) {\n"
+        start += "        std::string contents = \"\";\n"
+        start += "\n"
+        start += "        if (read_typ == READLINE) {\n"
+        start += "            std::getline(std::cin, contents);\n"
+        start += "        } else {\n"
+        start += "            while (true) {\n"
+        start += "                char *buf = new char[1];\n"
+        start += "                std::cin.read(buf, 1);\n"
+        start += "\n"
+        start += "                delete[] buf;\n"
+        start += "            }\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        for (auto ch: contents) {\n"
+        start += "            vars->mem.push_back(ch);\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        vars->mem.push_back(contents.length());\n"
+        start += "\n"
+        start += "        return;\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    fstream *file_ptr = &vars->open_files.at(fd);\n"
+        start += "\n"
+        start += "    if (!(*file_ptr)) {\n"
+        start += "        std::cerr << \"FileError: Invalid file descriptor - \" << fd << \'\\n\';\n"
+        start += "        exit(1);\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    std::string contents = \"\";\n"
+        start += "\n"
+        start += "    if (read_typ == READLINE) {\n"
+        start += "        std::getline(*file_ptr, contents);\n"
+        start += "    } else {\n"
+        start += "        file_ptr->seekg(0, file_ptr->end);\n"
+        start += "        size_t length = file_ptr->tellg();\n"
+        start += "        file_ptr->seekg(0, file_ptr->beg);\n"
+        start += "\n"
+        start += "        if (read_typ < length && read_typ != READALL) {\n"
+        start += "            length = read_typ;\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        if (!length) {\n"
+        start += "            vars->mem.push_back(0);\n"
+        start += "            return;\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        char *buf = new char[length];\n"
+        start += "\n"
+        start += "        file_ptr->read(buf, length);\n"
+        start += "\n"
+        start += "        if (!(*file_ptr)) {\n"
+        start += "            std::cerr << \"FileError: could not read from file.\\n\";\n"
+        start += "            exit(1);\n"
+        start += "        }\n"
+        start += "\n"
+        start += "        contents.assign(buf, length);\n"
+        start += "\n"
+        start += "        delete[] buf;\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    for (auto ch: contents) {\n"
+        start += "        vars->mem.push_back(ch);\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    vars->mem.push_back(contents.length());\n"
+        start += "}\n"
+        start += "\n"
+
+    if direct_write or direct_syscall or not optimise:
+        start += "void PANG_WRITE(Variables *vars) {\n"
+        start += "    int64_t fd = pop(&vars->mem) - 3;\n"
+        start += "\n"
+        start += "    if (fd >= 0) {\n"
+        start += "        vars->open_files.at(fd) << vars->buf;\n"
+        start += "        vars->open_files.at(fd).flush();\n"
+        start += "        vars->buf = \"\";\n"
+        start += "\n"
+        start += "        return;\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    switch (fd) {\n"
+        start += "        case -2: { std::cout << vars->buf; break; }\n"
+        start += "        case -1: { std::cerr << vars->buf; break; }\n"
+        start += "\n"
+        start += "        default: {\n"
+        start += "            std::cerr << \"FileError: Invalid file descriptor.\\n\";\n"
+        start += "            exit(1);\n"
+        start += "        }\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    vars->buf = \"\";\n"
+        start += "}\n"
+        start += "\n"
+
+    if direct_close or direct_syscall or not optimise:
+        start += "void PANG_CLOSE(Variables *vars) {\n"
+        start += "    int64_t fd = pop(&vars->mem) - 3;\n"
+        start += "\n"
+        start += "    if (fd >= 0) {\n"
+        start += "        vars->open_files.at(fd).close();\n"
+        start += "        return;\n"
+        start += "    }\n"
+        start += "\n"
+        start += "    switch (fd) {\n"
+        start += "        case -3: { fclose(stdin); break; }\n"
+        start += "        case -2: { fclose(stdout); break; }\n"
+        start += "        case -1: { fclose(stderr); break; }\n"
+        start += "\n"
+        start += "        default: {\n"
+        start += "            std::cerr << \"FileError: Invalid file descriptor.\\n\";\n"
+        start += "            exit(1);\n"
+        start += "        }\n"
+        start += "    }\n"
+        start += "}\n"
+        start += "\n"
 
     if direct_buf or not optimise:
         start += "#define PANG_BUF \\\n"
         start += "    switch (pop(&vars.mem)) { \\\n"
-        start += "        case 0: { vars.buf += std::to_string(vars.mem.at(vars.mem.size() - 1)); break; } \\\n"
-        start += "        case 1: { vars.buf += vars.mem.at(vars.mem.size() - 1); break; } \\\n"
+        start += "        case 0: { vars.buf += std::to_string(vars.mem.back()); break; } \\\n"
+        start += "        case 1: { vars.buf += vars.mem.back(); break; } \\\n"
         start += "    \\\n"
         start += "        default: { \\\n"
         start += "            std::cerr << \"BufferError: Invalid buf type.\\n\"; \\\n"
@@ -1092,7 +1153,11 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
         start += "        }\n"
         start += "\n"
         start += "        case SYSCALL_RESIZE: {\n"
-        start += "            vars->mem.resize(((int64_t) vars->mem.size() - 1) - pop(&vars->mem));\n"
+        start += "            if (vars->mem.back() > 0) {\n"
+        start += "                vars->mem.resize(((int64_t) vars->mem.size()) - pop(&vars->mem));\n"
+        start += "            } else {\n"
+        start += "                vars->mem.resize(-pop(&vars->mem));\n"
+        start += "            }\n"
         start += "            break;\n"
         start += "        }\n"
         start += "\n"
@@ -1110,7 +1175,7 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
         start += "\n"
     
     start += "#define PUSH_INTEGER(x) vars.mem.push_back(x)\n"
-    start += "#define PANG_DUP   vars.mem.push_back(vars.mem.at(vars.mem.size() - 1))\n"
+    start += "#define PANG_DUP   vars.mem.push_back(vars.mem.back())\n"
     start += "\n"
     start += "#define PANG_BACK  vars.mem.insert(vars.mem.begin(), pop(&vars.mem))\n"
     start += "#define PANG_FRONT vars.mem.push_back(pop(&vars.mem, 0))\n"
@@ -1144,7 +1209,6 @@ def compile_ops(toks: list[Token], optimise: bool) -> str:
     start += "\n"
     start += "        vars.mem.push_back(arg.length());\n"
     start += "    }\n"
-    start += "\n"
     start += "    vars.mem.push_back(argc);\n\n"
     
     return start + out + "}"
