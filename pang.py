@@ -555,7 +555,7 @@ def get_syscall(num: int, last: str = "pop(&vars.mem)") -> str:
         0x008: "PANG_CLOSE(&vars);\n",
         0x00C: "std::this_thread::sleep_for(std::chrono::milliseconds(%s));\n" % last,
         0x010: "if (vars.mem.back() > 0) { vars.mem.resize(((int64_t) vars.mem.size()) - pop(&vars.mem)); } else { vars.mem.resize(-pop(&vars.mem)); }\n",
-        0x011: "if (vars.mem.back() < 0) { vars.mem.back() += vars.mem.size() - 1; } vars.mem.push_back(vars.mem.at(%s));\n" % last,
+        0x011: "if (vars.mem.back() < 0) { vars.mem.back() += vars.mem.size() - 1; } vars.mem.push_back(vars.mem[%s]);\n" % last,
         0x012: "vars.mem.push_back(vars.mem.size());\n"
     }
 
@@ -565,10 +565,10 @@ def get_syscall(num: int, last: str = "pop(&vars.mem)") -> str:
     if num in (0x010, 0x011) and type(last) == int:
         if last > 0:
             syscalls[0x010] = "vars.mem.resize(((int64_t) vars.mem.size()) - %d);\n" % last
-            syscalls[0x011] = "vars.mem.push_back(vars.mem.at(%d));\n" % last
+            syscalls[0x011] = "vars.mem.push_back(vars.mem[%d]);\n" % last
         else:
             syscalls[0x010] = "vars.mem.resize(-%d);\n" % last
-            syscalls[0x011] = "vars.mem.back() += vars.mem.size() - 1; vars.mem.push_back(vars.mem.at(%d));\n" % last
+            syscalls[0x011] = "vars.mem.back() += vars.mem.size() - 1; vars.mem.push_back(vars.mem[%d]);\n" % last
 
     if num not in syscalls:
         Croak(ErrorType.Stack, "Syscall number not valid. (number: %d)" % num)
@@ -1026,7 +1026,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "        return;\n"
         start += "    }\n"
         start += "\n"
-        start += "    fstream *file_ptr = &vars->open_files.at(fd);\n"
+        start += "    fstream *file_ptr = &vars->open_files[fd];\n"
         start += "\n"
         start += "    if (!(*file_ptr)) {\n"
         start += "        std::cerr << \"FileError: Invalid file descriptor - \" << fd << \'\\n\';\n"
@@ -1078,8 +1078,8 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "    int64_t fd = pop(&vars->mem) - 3;\n"
         start += "\n"
         start += "    if (fd >= 0) {\n"
-        start += "        vars->open_files.at(fd) << vars->buf;\n"
-        start += "        vars->open_files.at(fd).flush();\n"
+        start += "        vars->open_files[fd] << vars->buf;\n"
+        start += "        vars->open_files[fd].flush();\n"
         start += "        vars->buf = \"\";\n"
         start += "\n"
         start += "        return;\n"
@@ -1104,7 +1104,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "    int64_t fd = pop(&vars->mem) - 3;\n"
         start += "\n"
         start += "    if (fd >= 0) {\n"
-        start += "        vars->open_files.at(fd).close();\n"
+        start += "        vars->open_files[fd].close();\n"
         start += "        return;\n"
         start += "    }\n"
         start += "\n"
@@ -1166,7 +1166,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "                vars->mem.push_back(pop(&vars->mem) + vars->mem.size());\n"
         start += "            }\n"
         start += "\n"
-        start += "            vars->mem.push_back(vars->mem.at(pop(&vars->mem)));\n"
+        start += "            vars->mem.push_back(vars->mem[pop(&vars->mem)]);\n"
         start += "            break;\n"
         start += "        }\n"
         start += "        case SYSCALL_LENGTH: { vars->mem.push_back(vars->mem.size()); break; }\n"
@@ -1195,7 +1195,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
     start += "    setlocale(LC_ALL, \".utf-8\");\n"
     start += "    #endif\n"
     start += "\n"
-    start += "    Variables vars = {};\n"
+    start += "    Variables vars;\n"
     start += "\n"
     start += "    vars.exit_code = -1;\n"
     start += "    vars.buf = \"\";\n"
@@ -1203,10 +1203,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
     start += "    std::vector<std::string> args(argv, argv + argc);\n"
     start += "\n"
     start += "    for (auto arg: args) {\n"
-    start += "        for (auto ch: arg) {\n"
-    start += "            vars.mem.push_back(ch);\n"
-    start += "        }\n"
-    start += "\n"
+    start += "        std::copy(arg.begin(), arg.end(), std::back_inserter(vars.mem));\n"
     start += "        vars.mem.push_back(arg.length());\n"
     start += "    }\n"
     start += "    vars.mem.push_back(argc);\n\n"
