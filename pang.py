@@ -5,6 +5,7 @@ from typing import Union
 import sys
 import os
 
+PRE_ARGV_ALLOCATE = 128
 PANG_SYS = os.path.dirname(os.path.realpath(__file__)) + "\\"
 
 NEWLINE_SYSCALLS = [
@@ -594,6 +595,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
     indent_width = 4
     prev_int = []
     prev = Token()
+    pre_allocator = 0
     direct_syscall = False
     direct_buf = False
     direct_divmod = False
@@ -612,6 +614,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
                 tok.value = prev.value + tok.value
 
             chars = [ord(ch) for ch in tok.value]
+            pre_allocator += len(chars)
             
             out += "%svars.mem.insert(vars.mem.end(), {%s, %d});\n" % (
                 " " * indent_width,
@@ -624,6 +627,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
                 drop_prev_int = False
         elif tok.typ == TokenType.INT:
             out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
+            pre_allocator += 1
 
             if optimise:
                 prev_int.append(tok.value)
@@ -655,6 +659,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
                 direct_buf = True
                 out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
         elif tok.typ == TokenType.DUP:
+            pre_allocator += 1
             if prev_int:
                 out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, prev_int[-1])
                 prev_int.append(prev_int[-1])
@@ -869,6 +874,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
     start += "#include <fstream>\n"
     start += "#include <vector>\n"
     start += "#include <string>\n"
+    start += "#include <cstring>\n"
     start += "\n"
     
     if direct_syscall or direct_sleep or not optimise:
@@ -1200,11 +1206,18 @@ def compile_ops(toks: list, optimise: bool) -> str:
     start += "    vars.exit_code = -1;\n"
     start += "    vars.buf = \"\";\n"
     start += "\n"
-    start += "    std::vector<std::string> args(argv, argv + argc);\n"
+
+    # For performance reasons, there may be multiple if statements that
+    # do not get ran. So after 1024 bytes, simply allow the vector to grow naturally.
+    if pre_allocator < 1024:
+        start += "    vars.mem.resize(%d);\n" % (PRE_ARGV_ALLOCATE + pre_allocator)
+    else:
+        start += "    vars.mem.resize(%d);\n" % PRE_ARGV_ALLOCATE
+    
     start += "\n"
-    start += "    for (auto arg: args) {\n"
-    start += "        std::copy(arg.begin(), arg.end(), std::back_inserter(vars.mem));\n"
-    start += "        vars.mem.push_back(arg.length());\n"
+    start += "    for (; *argv; *argv++) {\n"
+    start += "        vars.mem.insert(vars.mem.end(), *argv, *argv+strlen(*argv));\n"
+    start += "        vars.mem.push_back(strlen(*argv));\n"
     start += "    }\n"
     start += "    vars.mem.push_back(argc);\n\n"
     
