@@ -13,5 +13,7 @@ end
 clear
 
 93 for do
-    dup fib puti '\n' putc 2 purge
+    fib bufi '\n' bufc drop
 end
+
+stdout write

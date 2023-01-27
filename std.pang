@@ -15,8 +15,8 @@ macro else not if end
 
 /* Types */
 
-macro int  0 end
-macro char 1 end
+macro _buf_int  0 end
+macro _buf_char 1 end
 
 /* Booleans */
 
@@ -36,8 +36,8 @@ macro stderr 2 end // standard error reporting file
 macro clear 0 purge end
 macro drop  1 purge end
 
-macro bufc char buf end
-macro bufi int  buf end
+macro bufc _buf_char buf end
+macro bufi _buf_int  buf end
 
 /* The range macro outputs a list of integers starting at 0 and ending at n, not including n.
    This list is pushed to the stack. */
@@ -117,9 +117,9 @@ end
 /* writes a string to stderr with the prefix "Error: " in red color,
    and then exits the program with error code 1. */
 macro eputs
-    "\x1b[38;2;200;0;0mError: "
-    bufs purge bufs // get color and message into buffer
-    "\x1b[0m" bufs purge // finish by cleaning up color
+    "\x1b[38;2;200;0;0mError: " bufs purge
+    back "\x1b[0m" front add bufs
+
     stderr write 1 exit // exit with error code 1
 end
 

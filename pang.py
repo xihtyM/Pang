@@ -637,17 +637,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
             if prev_int:
                 out = remove_newline(out)
 
-                if len(prev_int) >= 2:
-                    out = remove_newline(out)
-                    
-                    if prev_int[-1] == 1:
-                        out += "%svars.buf += %d;\n" % (" " * indent_width, prev_int.pop(-2))
-                    elif prev_int[-1] == 0:
-                        out += "%svars.buf += \"%d\";\n" % (" " * indent_width, prev_int.pop(-2))
-                    else:
-                        Croak(ErrorType.Stack, "%d is not a valid number for the buf keyword (1 or 0)...")
-
-                elif prev_int[-1] == 0:
+                if prev_int[-1] == 0:
                     out += "%svars.buf += std::to_string(vars.mem.back());\n" % (" " * indent_width)
                 elif prev_int[-1] == 1:
                     out += "%svars.buf += vars.mem.back();\n" % (" " * indent_width)
@@ -1475,6 +1465,7 @@ def run_program() -> None:
     filename = False
     cpp = False
     asm = False
+    gdb = False
 
     args = []
     outname = "a"
@@ -1505,6 +1496,8 @@ def run_program() -> None:
             comp = True
         elif arg in ("-C", "-cpp"):
             cpp = True
+        elif arg == "-g":
+            gdb = True
         
         elif arg == "-args":
             arg_st = True
@@ -1528,7 +1521,12 @@ def run_program() -> None:
         name = "temp.cc" if not cpp else outname + ".cc"
 
         open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, optimise))
-        command = "g++ %s -o %s -Werror -s -Bdynamic -lstdc++ -lmingw32 -lmsvcrt -lkernel32" % (name, outname)
+        command = "g++ %s -o %s -Werror -Bdynamic -lstdc++ -lmingw32 -lmsvcrt -lkernel32" % (name, outname)
+
+        if gdb:
+            command += " -g"
+        else:
+            command += " -s"
 
         if optimise:
             command += "%s" % optimise_flag
