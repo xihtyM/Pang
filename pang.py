@@ -5,7 +5,8 @@ from typing import Union
 import sys
 import os
 
-PRE_ARGV_ALLOCATE = 128
+MAX_PREALLOC = 1024
+PRE_ARGV_ALLOCATE = 32
 PANG_SYS = os.path.dirname(os.path.realpath(__file__)) + "\\"
 
 NEWLINE_SYSCALLS = [
@@ -595,7 +596,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
     indent_width = 4
     prev_int = []
     prev = Token()
-    pre_allocator = 0
+    pre_allocator = PRE_ARGV_ALLOCATE
     direct_syscall = False
     direct_buf = False
     direct_divmod = False
@@ -1209,10 +1210,11 @@ def compile_ops(toks: list, optimise: bool) -> str:
 
     # For performance reasons, there may be multiple if statements that
     # do not get ran. So after 1024 bytes, simply allow the vector to grow naturally.
-    if pre_allocator < 1024:
-        start += "    vars.mem.resize(%d);\n" % (PRE_ARGV_ALLOCATE + pre_allocator)
+    if pre_allocator < MAX_PREALLOC:
+        pre_allocator = 1 << (pre_allocator.bit_length())
+        start += "    vars.mem.resize(%d);\n" % pre_allocator
     else:
-        start += "    vars.mem.resize(%d);\n" % PRE_ARGV_ALLOCATE
+        start += "    vars.mem.resize(%d);\n" % MAX_PREALLOC
     
     start += "\n"
     start += "    for (; *argv; *argv++) {\n"
@@ -1526,7 +1528,7 @@ def run_program() -> None:
         name = "temp.cc" if not cpp else outname + ".cc"
 
         open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, optimise))
-        command = "g++ %s -o %s -Werror" % (name, outname)
+        command = "g++ %s -o %s -Werror -s -Bdynamic -lstdc++ -lmingw32 -lmsvcrt -lkernel32" % (name, outname)
 
         if optimise:
             command += "%s" % optimise_flag
