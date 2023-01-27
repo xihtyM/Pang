@@ -1202,9 +1202,9 @@ def compile_ops(toks: list, optimise: bool) -> str:
     # do not get ran. So after 1024 bytes, simply allow the vector to grow naturally.
     if pre_allocator < MAX_PREALLOC:
         pre_allocator = 1 << (pre_allocator.bit_length())
-        start += "    vars.mem.resize(%d);\n" % pre_allocator
+        start += "    vars.mem.reserve(%d);\n" % pre_allocator
     else:
-        start += "    vars.mem.resize(%d);\n" % MAX_PREALLOC
+        start += "    vars.mem.reserve(%d);\n" % MAX_PREALLOC
     
     start += "\n"
     start += "    for (; *argv; *argv++) {\n"
