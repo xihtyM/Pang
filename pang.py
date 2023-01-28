@@ -556,7 +556,7 @@ def get_syscall(num: int, last: str = "pop(&vars.mem)") -> str:
         0x007: "PANG_WRITE(&vars);\n",
         0x008: "PANG_CLOSE(&vars);\n",
         0x00C: "std::this_thread::sleep_for(std::chrono::milliseconds(%s));\n" % last,
-        0x010: "if (vars.mem.back() > 0) { vars.mem.resize(((int64_t) vars.mem.size()) - pop(&vars.mem)); } else { vars.mem.resize(-pop(&vars.mem)); }\n",
+        0x010: "if (vars.mem.back() > 0) { vars.mem.resize(((int64_t) vars.mem.size()) - vars.mem.back() - 1); } else { vars.mem.resize(-vars.mem.back()); }\n",
         0x011: "if (vars.mem.back() < 0) { vars.mem.back() += vars.mem.size() - 1; } vars.mem.push_back(vars.mem[%s]);\n" % last,
         0x012: "vars.mem.push_back(vars.mem.size());\n"
     }
@@ -605,28 +605,34 @@ def compile_ops(toks: list, optimise: bool) -> str:
     direct_read = False
     direct_write = False
     direct_close = False
+    prev_chars = []
 
     for tok in toks:
         drop_prev_int = True
 
-        if tok.typ == TokenType.STR:
-            if prev.typ == TokenType.STR:
-                out = remove_newline(out)
-                tok.value = prev.value + tok.value
-
+        if tok.typ != TokenType.STR:
+            prev_chars = []
+        else:
             chars = [ord(ch) for ch in tok.value]
             pre_allocator += len(chars)
+
+            if prev_chars:
+                out = remove_newline(out)
             
-            out += "%svars.mem.insert(vars.mem.end(), {%s, %d});\n" % (
+            out += "%svars.mem.insert(vars.mem.end(), {%s});\n" % (
                 " " * indent_width,
-                ", ".join([str(ch) for ch in chars]),
-                len(tok.value)
+                ", ".join(prev_chars
+                    + [str(ch) for ch in chars]
+                    + [str(len(chars))]),
             )
                 
+            prev_chars += [str(ch) for ch in chars] + [str(len(tok.value))]
+
             if optimise:
                 prev_int += chars + [len(tok.value)]
                 drop_prev_int = False
-        elif tok.typ == TokenType.INT:
+        
+        if tok.typ == TokenType.INT:
             out += "%sPUSH_INTEGER(%d);\n" % (" " * indent_width, tok.value)
             pre_allocator += 1
 
@@ -1207,8 +1213,8 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "    vars.mem.reserve(%d);\n" % MAX_PREALLOC
     
     start += "\n"
-    start += "    for (; *argv; *argv++) {\n"
-    start += "        vars.mem.insert(vars.mem.end(), *argv, *argv+strlen(*argv));\n"
+    start += "    for (; *argv; argv++) {\n"
+    start += "        vars.mem.insert(vars.mem.end(), (unsigned char*) *argv, (unsigned char*) (*argv) + strlen(*argv));\n"
     start += "        vars.mem.push_back(strlen(*argv));\n"
     start += "    }\n"
     start += "    vars.mem.push_back(argc);\n\n"
@@ -1466,6 +1472,7 @@ def run_program() -> None:
     cpp = False
     asm = False
     gdb = False
+    keep_temp = False
 
     args = []
     outname = "a"
@@ -1498,6 +1505,8 @@ def run_program() -> None:
             cpp = True
         elif arg == "-g":
             gdb = True
+        elif arg == "-t":
+            keep_temp = True
         
         elif arg == "-args":
             arg_st = True
@@ -1535,7 +1544,9 @@ def run_program() -> None:
         
         if not cpp:
             os.system(command)
-            os.remove(name)
+            if not keep_temp:
+                os.remove(name)
+            
         elif asm:
             os.system(command)
         
