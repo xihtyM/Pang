@@ -1,8 +1,10 @@
 include 'std.pang'
 
-clear
+1 = if do
+    "Must have at least 1 file argument.\n" eputs
+end
 
-"std.pang" "r" open
+"r" open
 fread back puts
 front close
 

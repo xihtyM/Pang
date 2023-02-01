@@ -946,8 +946,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "\n"
         start += "    std::lldiv_t result = std::lldiv(numerator, denominator);\n"
         start += "\n"
-        start += "    stack->push_back(result.quot);\n"
-        start += "    stack->push_back(result.rem);\n"
+        start += "    stack->insert(stack->end(), {result.quot, result.rem});\n"
         start += "}\n"
         start += "\n"
 
@@ -1012,18 +1011,14 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "        if (read_typ == READLINE) {\n"
         start += "            std::getline(std::cin, contents);\n"
         start += "        } else {\n"
+        start += "            char *buf = new char[1];\n"
         start += "            while (true) {\n"
-        start += "                char *buf = new char[1];\n"
         start += "                std::cin.read(buf, 1);\n"
-        start += "\n"
-        start += "                delete[] buf;\n"
         start += "            }\n"
+        start += "            delete[] buf;\n"
         start += "        }\n"
         start += "\n"
-        start += "        for (auto ch: contents) {\n"
-        start += "            vars->mem.push_back(ch);\n"
-        start += "        }\n"
-        start += "\n"
+        start += "        vars->mem.insert(vars->mem.end(), contents.begin(), contents.end());\n"
         start += "        vars->mem.push_back(contents.length());\n"
         start += "\n"
         start += "        return;\n"
@@ -1068,10 +1063,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "        delete[] buf;\n"
         start += "    }\n"
         start += "\n"
-        start += "    for (auto ch: contents) {\n"
-        start += "        vars->mem.push_back(ch);\n"
-        start += "    }\n"
-        start += "\n"
+        start += "    vars->mem.insert(vars->mem.end(), contents.begin(), contents.end());\n"
         start += "    vars->mem.push_back(contents.length());\n"
         start += "}\n"
         start += "\n"
@@ -1083,7 +1075,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "    if (fd >= 0) {\n"
         start += "        vars->open_files[fd] << vars->buf;\n"
         start += "        vars->open_files[fd].flush();\n"
-        start += "        vars->buf = \"\";\n"
+        start += "        vars->buf.clear();\n"
         start += "\n"
         start += "        return;\n"
         start += "    }\n"
@@ -1098,7 +1090,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "        }\n"
         start += "    }\n"
         start += "\n"
-        start += "    vars->buf = \"\";\n"
+        start += "    vars->buf.clear();\n"
         start += "}\n"
         start += "\n"
 
@@ -1525,7 +1517,6 @@ def run_program() -> None:
     lex_src.get_tokens()
 
     if comp:
-        print("The compilation is still experimental, it may be buggy.")
         print("You must have g++ in order to compile pang.")
         name = "temp.cc" if not cpp else outname + ".cc"
 

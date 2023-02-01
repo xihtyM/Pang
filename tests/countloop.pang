@@ -1,5 +1,7 @@
 include 'std.pang'
 
+clear
+
 100 for do
     "Hello, World!\n" puts purge
 end
