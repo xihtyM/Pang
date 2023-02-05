@@ -14,6 +14,10 @@ Pang is a stack-based, interpreted and compiled programming language.
     - Generates C++ code.
 * `-args`
     - Sets all arguments after the -args flag in interpreting mode.
+* `-t`
+    - Keep temporary files
+* `-g`
+    - Enable debugging with gdb (pair with `-t` for easier functionality)
 
 # Command syntax
 * `pang.py filename.pang arguments`
