@@ -1,7 +1,7 @@
-## Pang documentation
+# Pang documentation
 Pang is a stack-based, interpreted and compiled programming language.
 
-# Arguments
+## Arguments ##
 * `-c` or `-com`
     - Compilation mode.
 * `-o outname`
@@ -19,7 +19,7 @@ Pang is a stack-based, interpreted and compiled programming language.
 * `-g`
     - Enable debugging with gdb (pair with `-t` for easier functionality)
 
-# Command syntax
+## Command syntax ##
 * `pang.py filename.pang arguments`
     - Interpretation mode, arguments (including filename.pang) are pushed to stack.
 * `pang.py filename.pang -args arguments`
@@ -27,13 +27,13 @@ Pang is a stack-based, interpreted and compiled programming language.
 * `pang.py filename.pang -c`
     - Compilation mode, make sure `-c` flag is before all other compilation-specific flags.
     - You can put any compilation argument after `-c`, it is recommended to include `-O` as that optimises your code.
-# How the stack works
+## How the stack works ##
 - In pang, the stack is a list of signed 64-bit integers. (In interpreted mode they are bignums however.)
 - The stack follows the last in first out rule, meaning to pop the stack would remove the last pushed item.
 - Pang does not support floating point numbers and there are no types in pang other than integers.
 - Whenever an item is refferred to, it just means an integer that is on the stack.
 
-# Pang keywords
+## Pang keywords ##
 Pang has currently got 22 reserved keywords, all of them are listed below with descriptions.
 * `xor`
     - Pops 2 items from the end of the stack. Performs a bitwise exclusive or operation on them, pushing the result.
