@@ -114,9 +114,7 @@ void download_pangfiles(char *files) {
     }
 }
 
-int main(void) {
-    setlocale(LC_ALL, ".utf-8");
-
+void install_pang(void) {
     _chdir(getenv("AppData"));
 
     pang_mkdir("Pang");
@@ -156,7 +154,7 @@ int main(void) {
 
     FILE *bat = fopen(bat_path, "w");
     
-    if (bat == NULL) {
+    if (!bat) {
         printf("Error: Failed to create batch file. %s\n", strerror(errno));
         exit(1);
     }
@@ -164,6 +162,31 @@ int main(void) {
     fwrite("@echo off\npython3 \"%pang%\\pang.py\" %*", strlen("@echo off\npython3 \"%pang%\\pang.py\" %*"), 1, bat);
     fclose(bat);
     free(bat_path);
+}
+
+void install_vscode(void) {
+    char *command = malloc(strlen(getenv("UserProfile")) + 137);
+
+    strcpy(command, "git clone https://github.com/xihtyM/Pang-Syntax-Highlighting \"");
+    strcat(command, getenv("UserProfile"));
+    strcat(command, "\\AppData\\Local\\Programs\\Microsoft VS Code\\resources\\app\\extensions\\pang\"");
+
+    char *path = malloc(strlen(getenv("UserProfile")) + 72);
+    strcpy(path, getenv("UserProfile"));
+    strcat(path, "\\AppData\\Local\\Programs\\Microsoft VS Code\\resources\\app\\extensions\\pang");
+
+    pang_mkdir(path);
+    free(path);
+
+    system(command);
+    free(command);
+}
+
+int main(void) {
+    setlocale(LC_ALL, ".utf-8");
+
+    install_pang();
+    install_vscode();
 
     return 0;
 }
