@@ -550,6 +550,7 @@ def find_end(ind: int, ops: list[Token]) -> int:
 
 def get_syscall(num: int, last: str = "pop(&vars.mem)") -> str:
     syscalls = {
+        #0x001: "PANG_FORK();\n",
         0x002: "exit(%s);\n" % last,
         0x005: "PANG_OPEN(&vars);\n",
         0x006: "PANG_READ(&vars);\n",
@@ -654,7 +655,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
                 drop_prev_int = False
             else:
                 direct_buf = True
-                out += "%sPANG_BUF(&vars);\n" % (" " * indent_width)
+                out += "%sPANG_BUF;\n" % (" " * indent_width)
         elif tok.typ == TokenType.DUP:
             pre_allocator += 1
             if prev_int:
@@ -878,8 +879,8 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "#include <chrono>\n"
         start += "#include <thread>\n"
         start += "\n"
-        
-    start += "#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)\n"
+     
+    start += "#if (defined(WIN32) || defined(_WIN32) || defined(__WIN32)) && !defined(__CYGWIN__)\n"
     start += "#define ON_WINDOWS\n"
     start += "#include <locale.h>\n"
     start += "#endif\n"
@@ -1133,9 +1134,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "    int64_t syscall_num = pop(&vars->mem);\n"
         start += "\n"
         start += "    switch (syscall_num) {\n"
-        start += "        case SYSCALL_EXIT: {\n"
-        start += "            exit(pop(&vars->mem));\n"
-        start += "        }\n"
+        start += "        case SYSCALL_EXIT: { exit(pop(&vars->mem)); }\n"
         start += "\n"
         start += "        case SYSCALL_OPEN: { PANG_OPEN(vars); break; }\n"
         start += "        case SYSCALL_READ: { PANG_READ(vars); break; }\n"
@@ -1149,7 +1148,7 @@ def compile_ops(toks: list, optimise: bool) -> str:
         start += "\n"
         start += "        case SYSCALL_RESIZE: {\n"
         start += "            if (vars->mem.back() > 0) {\n"
-        start += "                vars->mem.resize(((int64_t) vars->mem.size()) - pop(&vars->mem));\n"
+        start += "                vars->mem.resize(((int64_t) vars->mem.size()) - vars->mem.back() - 1);\n"
         start += "            } else {\n"
         start += "                vars->mem.resize(-pop(&vars->mem));\n"
         start += "            }\n"
@@ -1262,9 +1261,6 @@ class Interpreter():
             
             self.mem.append(len(value))
     
-    #def pointer(self, address: pangint) -> None:
-    #    address.ptr = True
-
     def syscall(self) -> None:
         syscall_number = Syscall(self.mem.pop())
 

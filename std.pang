@@ -2,17 +2,6 @@
 
 include 'os.pang'
 
-/* Gates */
-
-macro not 0 = end          // logical not gate
-macro chsin 0 swap sub end // changes the sign of the number
-
-// if the if statement is false
-// note: the condition must be duped as it gets popped.
-// note: in the if block before the else,
-//       if you push false after it will run the else block.
-macro else not if end
-
 /* Types */
 
 macro _buf_int  0 end
@@ -20,8 +9,23 @@ macro _buf_char 1 end
 
 /* Booleans */
 
+macro bool 0! end
 macro true  1 end
 macro false 0 end
+
+/* Gates */
+
+macro not 0 = end
+
+macro or bool swap bool add 0 ! end
+macro and bool swap bool add 2 = end 
+macro chsin 0 swap sub end
+
+// if the if statement is false
+// note: the condition must be duped as it gets popped.
+// note: in the if block before the else,
+//       if you push false after it will run the else block.
+macro else not if end
 
 /* * * * * * * * *
  * STDIO streams *
@@ -36,8 +40,8 @@ macro stderr 2 end // standard error reporting file
 macro clear 0 purge end
 macro drop  1 purge end
 
-macro bufc _buf_char buf end
 macro bufi _buf_int  buf end
+macro bufc _buf_char buf end
 
 /* The range macro outputs a list of integers starting at 0 and ending at n, not including n.
    This list is pushed to the stack. */
@@ -74,10 +78,10 @@ macro bufs
     end drop front
 end
 
-/* The fputs macro takes a file descriptor and a string as input,
-   and writes the string to the file specified by the file descriptor. */
-macro fputs
-    back bufs front write
+/* The fputi macro takes a file descriptor and an integer as input,
+   and writes the integer to the file specified by the file descriptor. */
+macro fputi
+    back bufi front write
 end
 
 /* The fputc macro takes a file descriptor and a character as input,
@@ -86,22 +90,10 @@ macro fputc
     back bufc front write
 end
 
-/* The fputi macro takes a file descriptor and an integer as input,
-   and writes the integer to the file specified by the file descriptor. */
-macro fputi
-    back bufi front write
-end
-
-/* The puts macro takes a string as input and writes it to the standard output. */
-macro puts
-    bufs stdout write
-end
-
-/* The putln macro takes a string as input and writes it to the standard output,
-   with a newline at the end. */
-macro putln
-    bufs '\n' bufc drop
-    stdout write
+/* The fputs macro takes a file descriptor and a string as input,
+   and writes the string to the file specified by the file descriptor. */
+macro fputs
+    back bufs front write
 end
 
 /* puti is a macro for printing an integer to stdout. */
@@ -112,6 +104,17 @@ end
 /* putc is a macro for printing a character to stdout.*/
 macro putc
     bufc stdout write
+end
+
+/* The puts macro takes a string as input and writes it to the standard output. */
+macro puts
+    bufs stdout write
+end
+/* The putln macro takes a string as input and writes it to the standard output,
+   with a newline at the end. */
+macro putln
+    bufs '\n' bufc drop
+    stdout write
 end
 
 /* writes a string to stderr with the prefix "Error: " in red color,
@@ -154,3 +157,37 @@ macro over
     swap back swap
     front swap
 end
+
+macro array_3d_to_ptr
+    dup dup back 0 > back
+    swap 1 sub dup back
+
+    < front swap front or if do
+        "subscript not valid (below 0 or bigger than length of 3d array).\n" eputs
+    end front
+
+    swap dup back swap
+    sub 2 chsin back dup while do
+        1 sub front
+        dup back ptr
+        1 add front
+        swap sub
+        back dup
+    end drop
+
+    front front 1 add swap
+end
+
+macro append_2d_from_ptr
+    dup back ptr
+    front swap dup back
+    sub
+
+    front dup while do
+        1 sub back
+        dup back ptr
+        front front dup
+    end drop ptr
+end
+
+macro array_3d_subscript array_3d_to_ptr append_2d_from_ptr end
