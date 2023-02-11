@@ -1,0 +1,3 @@
+include 'std.pang'
+
+100 chsin puti // prints -100

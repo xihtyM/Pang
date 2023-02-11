@@ -33,6 +33,19 @@ Pang is a stack-based, interpreted and compiled programming language.
 - Pang does not support floating point numbers and there are no types in pang other than integers.
 - Whenever an item is refferred to, it just means an integer that is on the stack.
 
+## Data types ##
+As pang is stack-based, every item on the stack is an integer, this means data types such as floats and strings are not supported. However, that doesn't mean that they cannot be made - here is a list of all supported data types in pang:
+
+### Strings/2d arrays ###
+2d arrays are an extremely common data type and necessary for almost any programming language. This is how pang implements them:
+- 2d arrays are a group of integers appended to the stack.
+- 2d arrays are to be suffixed by the length of their string.
+- Strings are a type of 2d array, where each character is appended with the length of the string as the suffix.
+
+## argv and argc in pang ##
+Pang supports command-line arguments. This is done by appending the args into the stack as follows:
+- argv[0] is appended as a string in pang (refer above).
+
 ## Pang keywords ##
 Pang has currently got 22 reserved keywords, all of them are listed below with descriptions.
 * `xor`

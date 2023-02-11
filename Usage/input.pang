@@ -1,0 +1,10 @@
+include 'std.pang'
+
+"What is your name? " puts
+
+"Hello, " bufs
+// get user name
+input bufs
+'!' bufc
+
+stdout write

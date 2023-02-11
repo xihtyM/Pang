@@ -382,7 +382,12 @@ class Lexer():
             elif current == "<":
                 self.atom(TokenType.SMALLER_THAN)
             else:
-                assert False, "Unhandled token type/raw text: %s:%d" % (current, self.index)
+                Croak(
+                    ErrorType.Syntax,
+                    "invalid character found in file \"%s\" (detected at line: %d): %c" % (
+                        self.fn, self.line(self.index), current
+                    )
+                )
 
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
@@ -1302,6 +1307,7 @@ class Interpreter():
     
     def syscall_read(self) -> None:
         fd = self.mem.pop()
+        # TODO: rewrite to be compatible with compilation version
         
         contents = self.open_files[
             fd].read()
@@ -1432,6 +1438,8 @@ class Interpreter():
         self.ind = 0
         self.o_buf = ""
         self.mem = []
+        self.exit_code = None
+        self.open_files = [sys.stdin, sys.stdout, sys.stderr]
 
     def __init__(self, args: list[str], ops: list[Token]):
         self.mem = []

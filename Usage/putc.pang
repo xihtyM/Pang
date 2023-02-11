@@ -1,0 +1,4 @@
+include 'std.pang'
+
+// print 'a' to stdout
+'a' putc

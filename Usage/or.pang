@@ -1,0 +1,9 @@
+include 'std.pang'
+
+dup 3 < back // check if argc > 3 and send result to back of stack
+dup 7 > front // check if argc < 7 and send result from above back to front
+
+// runs if one of the above are true
+or if do
+    "Well done!\n" puts purge
+end

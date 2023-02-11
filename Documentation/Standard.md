@@ -35,36 +35,49 @@ All macros provided by standard libraries:
 
         - `readall`: Expands to -1.
         - `readln`: Expands to 0.
-    - __Functions__:
-        - `not`: Performs a logical not gate on the last item on stack.
-        - `chsin`: Changes the sign of the last item on stack.
-        - `else`: Performs `not` and then opens an if statement.
-        - `clear`: Removes all items on stack.
-        - `drop`: Drops last item on stack.
+    - __Macros__:
+        * Booleans:
+            - `bool`: Changes the last item on the stack to 1 if it is not 0. [Usage](/Usage/bool.pang)
 
-        - `bufi`: Appends the integer value of the last item on the stack to the output buffer.
-        - `bufc`: Appends the unicode value of the last item on the stack to the output buffer.
-        - `bufs`: Appends the last string on the stack to the output buffer.
+        * Logical operations or gates:
+            - `not`: Performs a logical not gate on the last item on stack. [Usage](/Usage/not.pang)
+            - `and`: Performs a logical and gate on the last two items on stack. [Usage](/Usage/and.pang)
+            - `or`: Performs a logical or gate on the last two items on stack. [Usage](/Usage/or.pang)
+            - `chsin`: Changes the sign of the last item on stack. [Usage](/Usage/chsin.pang)
+            - `else`: Performs `not` and then opens an if statement. [Usage](/Usage/else.pang)
 
-        - `fputi`: Prints the last string on stack taking the last item on stack as the file descriptor.
-        - `fputc`: Prints the last char on stack taking the last item on stack as the file descriptor.
-        - `fputs`: Prints the last int on stack taking the last item on stack as the file descriptor.
+        * Stack operations:
+            - `clear`: Removes all items on stack. [Usage](/Usage/clear.pang)
+            - `drop`: Drops last item on stack. [Usage](/Usage/drop.pang)
+            - `div`: Divides the last two items on stack and appends result. [Usage](/Usage/div.pang)
+            - `mod`: Calculates the modulo the last two items on stack and appends result. [Usage](/Usage/mod.pang)
+            - `over`: Swaps 3rd last and last item on stack. [Usage](/Usage/over.pang)
 
-        - `puti`: Prints the last integer on stack to stdout.
-        - `putc`: Prints the last char on stack to stdout.
-        - `puts`: Prints the last string on stack to stdout.
-        - `putln`: Prints the last string on stack to stdout with a newline suffix.
-        - `eputs`: Prints last string on stack to stderr with prefix "Error: " in red, exits with error code 1.
+        * Output:
+            - `bufi`: Appends the integer value of the last item on the stack to the output buffer. [Usage](/Usage/bufi.pang)
+            - `bufc`: Appends the unicode value of the last item on the stack to the output buffer. [Usage](/Usage/bufc.pang)
+            - `bufs`: Appends the last string on the stack to the output buffer. [Usage](/Usage/bufs.pang)
 
-        - `cls`: Clears standard output with ansi escape code (not supported on some terminals).
+            - `fputi`: Prints the last string on stack taking the last item on stack as the file descriptor. [Usage](/Usage/fputi.pang)
+            - `fputc`: Prints the last char on stack taking the last item on stack as the file descriptor. [Usage](/Usage/fputc.pang)
+            - `fputs`: Prints the last int on stack taking the last item on stack as the file descriptor. [Usage](/Usage/fputs.pang)
 
-        - `fread`: Reads everything from file descriptor and appends it as a string to stack, saving the file descriptor as the last item on the stack.
-        - `freadln`: Reads the first line from file descriptor and appends it as a string to stack, saving the file descriptor as the last item on the stack.
-        - `input`: Gets input from stdin appending as a string to stack.
+            - `puti`: Prints the last integer on stack to stdout. [Usage](/Usage/puti.pang)
+            - `putc`: Prints the last char on stack to stdout. [Usage](/Usage/putc.pang)
+            - `puts`: Prints the last string on stack to stdout. [Usage](/Usage/puts.pang)
+            - `putln`: Prints the last string on stack to stdout with a newline suffix. [Usage](/Usage/putln.pang)
+            - `eputs`: Prints last string on stack to stderr with prefix "Error: " in red, exits with error code 1. [Usage](/Usage/eputs.pang)
 
-        - `range`: Pushes 0..n-1 to the stack, where n is the last item on stack.
-        - `for`: Performs `range` and then opens a while loop.
-        - `div`: Divides the last two items on stack and appends result.
-        - `mod`: Calculates the modulo the last two items on stack and appends result.
-        - `over`: Swaps 3rd last and last item on stack.
-        
+            - `cls`: Clears standard output with ansi escape code (not supported on some terminals). [Usage](/Usage/cls.pang)
+
+        * Input:
+            - `fread`: Reads everything from file descriptor and appends it as a string to stack, saving the file descriptor as the  last item on the stack. [Usage](/Usage/fread.pang)
+            - `freadln`: Reads the first line from file descriptor and appends it as a string to stack, saving the file descriptor  as the last item on the stack. [Usage](/Usage/freadln.pang)
+            - `input`: Gets input from stdin appending as a string to stack. [Usage](/Usage/input.pang) 
+
+        * Functions:
+            - `range`: Pushes 0..n-1 to the stack, where n is the last item on stack. [Usage](/Usage/range.pang) 
+            - `for`: Performs `range` and then opens a while loop. [Usage](/Usage/for.pang) 
+            - `array_3d_to_ptr`: Takes a 3d array and appends a pointer to a 2d array at the last item's index. [Usage](/Usage/array_3d_to_ptr.pang)
+            - `append_2d_from_ptr`: Takes a pointer to a 2d array and appends it to front of stack. [Usage](/Usage/append_2d_from_ptr.pang)
+            - `array_3d_subscript`: Takes a 3d array and appends a 2d array to front of stack at index n. [Usage](/Usage/array_3d_subscript.pang)

@@ -1,0 +1,7 @@
+include 'std.pang'
+
+// prints 30
+20 10 30 puti
+
+// swaps 20 and 30, so it now prints 20 as the stack has 20 as its last item
+over puti

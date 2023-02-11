@@ -1,0 +1,8 @@
+include 'std.pang'
+
+// append 50 and 12 to stack
+50 12
+
+puti drop // print 12 and remove it from the stack
+'\n' putc drop // just a newline for readability
+puti drop // print 50 and remove it from the stack

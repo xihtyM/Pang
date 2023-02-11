@@ -1,0 +1,4 @@
+include 'std.pang'
+
+// print argv[0]
+0 array_3d_subscript puts

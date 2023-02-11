@@ -1,5 +1,8 @@
 include 'std.pang'
 
-while do
-    putln purge length
+dup 2 > if do
+    "not enough arguments (expected at least 2).\n" eputs
 end
+
+1 array_3d_subscript puts
+

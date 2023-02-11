@@ -1,0 +1,15 @@
+include 'std.pang'
+
+// open test.txt in write only mode
+"test.txt" "w" open
+
+// save fd to back of stack
+dup back
+
+// swap char and file descriptor
+// for the correct ordered arguments
+// and print to file
+'a' swap fputc
+
+// close fd from saved fd
+front close

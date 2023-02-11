@@ -1,0 +1,9 @@
+include 'std.pang'
+
+// if argc < 2
+dup 2 > if do
+    "try adding another argument..." eputs
+end
+
+// print argv[1]
+1 array_3d_subscript puts

@@ -1,0 +1,5 @@
+include 'std.pang'
+
+// (ptr to argv[0]) + length(stack) = position in memory
+0 array_3d_to_ptr length add
+"argv[0] position in memory: " bufs purge puti

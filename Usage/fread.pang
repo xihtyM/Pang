@@ -1,0 +1,8 @@
+include 'std.pang'
+
+"fread.pang" "r" open
+// read contents, send fd to back and print contents
+fread back puts
+
+// close file from fd
+front close
