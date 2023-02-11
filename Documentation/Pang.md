@@ -44,7 +44,9 @@ As pang is stack-based, every item on the stack is an integer, this means data t
 
 ## argv and argc in pang ##
 Pang supports command-line arguments. This is done by appending the args into the stack as follows:
-- argv[0] is appended as a string in pang (refer above).
+- argv[n] is appended as a string in pang (refer above).
+- argc is appended after all arguments.
+- this is the same as a standard 3d array in pang.
 
 ## Pang keywords ##
 Pang has currently got 22 reserved keywords, all of them are listed below with descriptions.
