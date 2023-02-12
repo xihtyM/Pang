@@ -24,6 +24,7 @@ except AttributeError:
 
 class ErrorType(Enum):
     Name = auto()
+    File = auto()
     Stack = auto()
     Syntax = auto()
     Command = auto()
@@ -1307,11 +1308,19 @@ class Interpreter():
     
     def syscall_read(self) -> None:
         fd = self.mem.pop()
-        # TODO: rewrite to be compatible with compilation version
+        read_typ = self.mem.pop()
         
-        contents = self.open_files[
-            fd].read()
-        
+        file = self.open_files[fd]
+
+        if not read_typ:
+            contents = file.readline()[:-1]
+        elif read_typ == -1:
+            contents = file.read()
+        elif read_typ > 0:
+            contents = file.read(read_typ)
+        else:
+            Croak(ErrorType.File, "invalid read type: %d" % read_typ)
+
         self.mem += [ord(ch) for ch in contents]
         self.mem.append(len(contents))
     
