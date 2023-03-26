@@ -5,6 +5,17 @@
 #include <locale.h>
 #include <sys/stat.h>
 
+#define GIT_LINK "https://raw.githubusercontent.com/xihtyM/Pang/main/"
+
+#define str_in(str, cmp1) (strcmp((str), (cmp1)) == 0)
+#define str_in2(str, cmp1, cmp2) (str_in(str, cmp1) || str_in(str, cmp2))
+
+#define PANG_USAGE "\n" \
+"Pang Installer for Windows 10/11 Usage:\n" \
+"-vscode (alias -v): Installs pang syntax highlighting to vscode.\n" \
+"-pang (alias -p): Installs the pang compiler and sets up the pang environment variable.\n" \
+"-usage: Prints the usage for the installer.\n"
+
 bool SetPermanentEnvironmentVariable(LPCSTR value, LPCSTR data) {
     HKEY hKey;
     LPCSTR keyPath = "System\\CurrentControlSet\\Control\\Session Manager\\Environment";
@@ -42,7 +53,6 @@ void download(const char *url, const char *file) {
     }
 }
 
-#define GIT_LINK "https://raw.githubusercontent.com/xihtyM/Pang/main/"
 #define pang_download(path, file) download(GIT_LINK file, path file)
 
 void pang_mkdir(const char *path) {
@@ -182,11 +192,48 @@ void install_vscode(void) {
     free(command);
 }
 
-int main(void) {
+/// Loop through argv comparing argv[n] to each argument for pang.
+/// Nothing will be downloaded if there is an "argument not found" error
+/// or if there is a "-usage" flag.
+/// This is why it is done outside of the for loop.
+void install(char *argv[]) {
+    bool pang_install_flag = false;
+    bool vscode_install_flag = false;
+
+    argv++;
+
+    for (; *argv; argv++) {
+        if (str_in2(*argv, "-p", "-pang")) {
+            pang_install_flag = true;
+        } else if (str_in2(*argv, "-v", "-vscode")) {
+            vscode_install_flag = true;
+        } else if (str_in(*argv, "-usage")) {
+            printf(PANG_USAGE);
+            return;
+        } else {
+            printf("Error: Argument not found: %s. Type: pang -usage for more info", *argv);
+            return;
+        }
+    }
+
+    if (pang_install_flag) {
+        install_pang();
+    }
+    
+    if (vscode_install_flag) {
+        install_vscode();
+    }
+}
+
+int main(int argc, char *argv[]) {
     setlocale(LC_ALL, ".utf-8");
 
-    install_pang();
-    install_vscode();
+    if (argc < 2) {
+        printf("Error: Must have at least 1 argument. Type: pang -usage for more info");
+        return 1;
+    }
+
+    install(argv);
 
     return 0;
 }
