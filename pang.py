@@ -1,8 +1,14 @@
+import sys
+
+# ver < 3.6 is deprecated
+if sys.version_info < (3, 6):
+    print("DepreciationError: Please install a python version greater than 3.5.")
+    exit(1)
+
 from time import perf_counter, sleep
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Union
-import sys
 import os
 
 MAX_PREALLOC = 1024
