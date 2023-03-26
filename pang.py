@@ -1,8 +1,14 @@
+import sys
+
+# ver < 3.6 is deprecated
+if sys.version_info < (3, 6):
+    print("DepreciationError: Please install a python version greater than 3.5.")
+    exit(1)
+
 from time import perf_counter, sleep
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Union
-import sys
 import os
 
 MAX_PREALLOC = 1024
@@ -389,7 +395,7 @@ class Lexer():
                         self.fn, self.line(self.index), current
                     )
                 )
-
+    
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
 
@@ -596,7 +602,6 @@ def compile_ops(toks: list, optimise: bool) -> str:
     
     if len(toks) <= 0:
         Croak(ErrorType.Compile, "nothing to compile")
-
 
     out = ""
 
@@ -1512,7 +1517,6 @@ def run_program() -> None:
             gdb = True
         elif arg == "-t":
             keep_temp = True
-        
         elif arg == "-args":
             arg_st = True
     
@@ -1534,7 +1538,7 @@ def run_program() -> None:
         name = "temp.cc" if not cpp else outname + ".cc"
 
         open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, optimise))
-        command = "g++ %s -o %s -Werror -Bdynamic -lstdc++ -lmingw32 -lmsvcrt -lkernel32" % (name, outname)
+        command = "g++ %s -o %s -Werror -Bdynamic -lstdc++" % (name, outname)
 
         if gdb:
             command += " -g"
