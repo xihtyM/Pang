@@ -36,11 +36,11 @@ Pang is a stack-based, interpreted and compiled programming language.
 ## Data types ##
 As pang is stack-based, every item on the stack is an integer, this means data types such as floats and strings are not supported. However, that doesn't mean that they cannot be made - here is a list of all supported data types in pang:
 
-### Strings/2d arrays ###
-2d arrays are an extremely common data type and necessary for almost any programming language. This is how pang implements them:
-- 2d arrays are a group of integers appended to the stack.
-- 2d arrays are to be suffixed by the length of their string.
-- Strings are a type of 2d array, where each character is appended with the length of the string as the suffix.
+### Strings/1d arrays ###
+1d arrays are an extremely common data type and necessary for almost any programming language. This is how pang implements them:
+- 1d arrays are a group of integers appended to the stack.
+- 1d arrays are to be suffixed by the length of the array.
+- Strings are a type of 1d array, where each character is appended with the length of the string as the suffix.
 
 ## argv and argc in pang ##
 Pang supports command-line arguments. This is done by appending the args into the stack as follows:
@@ -49,7 +49,7 @@ Pang supports command-line arguments. This is done by appending the args into th
 - this is the same as a standard 3d array in pang.
 
 ## Pang keywords ##
-Pang has currently got 22 reserved keywords, all of them are listed below with descriptions.
+Pang has currently got 23 reserved keywords, all of them are listed below with descriptions.
 * `xor`
     - Pops 2 items from the end of the stack. Performs a bitwise exclusive or operation on them, pushing the result.
 * `bor`

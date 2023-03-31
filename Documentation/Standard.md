@@ -78,6 +78,6 @@ All macros provided by standard libraries:
         * Functions:
             - `range`: Pushes 0..n-1 to the stack, where n is the last item on stack. [Usage](/Usage/range.pang) 
             - `for`: Performs `range` and then opens a while loop. [Usage](/Usage/for.pang) 
-            - `array_3d_to_ptr`: Takes a 3d array and appends a pointer to a 2d array at the last item's index. [Usage](/Usage/array_3d_to_ptr.pang)
-            - `append_2d_from_ptr`: Takes a pointer to a 2d array and appends it to front of stack. [Usage](/Usage/append_2d_from_ptr.pang)
-            - `array_3d_subscript`: Takes a 3d array and appends a 2d array to front of stack at index n. [Usage](/Usage/array_3d_subscript.pang)
+            - `array_2d_to_ptr`: Takes a 2d array and appends a pointer to a 1d array at the last item's index. [Usage](/Usage/array_2d_to_ptr.pang)
+            - `append_1d_from_ptr`: Takes a pointer to a 1d array and appends it to front of stack. [Usage](/Usage/append_1d_from_ptr.pang)
+            - `array_2d_subscript`: Takes a 2d array and appends a 1d array to front of stack at index n. [Usage](/Usage/array_2d_subscript.pang)
