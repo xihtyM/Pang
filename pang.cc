@@ -20,17 +20,19 @@ operator<<(std::ostream &os,
     return os;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     pang::Stack pstack;
     pang::initilize_pang(&pstack);
 
-    pang::push(&pstack, 123321);
-    pang::push(&pstack, 1);
-    pang::quote(&pstack);
-    pang::apply(&pstack);
+    pang::push(&pstack, 123);
+    pang::push(&pstack, "hello");
+    pang::push(&pstack, 789);
+    pang::purge(&pstack, 0);
 
-    std::cout << pang::at(&pstack, 0, true);
+    for (int index = 0; index < pstack.stack[pstack.stack_pointer] + 1; index++) {
+        std::cout << pstack.mem[index] << ' ';
+    }
 
     return 0;
 }

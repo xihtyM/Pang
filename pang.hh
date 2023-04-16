@@ -32,8 +32,9 @@
 #define PANG_NULL_APPLY        0x10
 #define PANG_NULL_QUOTE        0x12
 #define PANG_NULL_MOVE         0x14
-#define PANG_APPLY_NON_POINTER 0x16
-#define PANG_QUOTE_POINTER     0x18
+#define PANG_NULL_PURGE        0x16
+#define PANG_APPLY_NON_POINTER 0x18
+#define PANG_QUOTE_POINTER     0x20
 
 #if (defined(WIN32) || defined(_WIN32) || defined(__WIN32)) && !defined(__CYGWIN__)
 #define ON_WINDOWS
@@ -51,6 +52,9 @@ START_NAMESPACE_PANG
 /// and easier to change for later.
 pang_type uint16_t pang_address;
 
+/// If the pang address needs to be signed, use this.
+pang_type int32_t spang_address;
+
 /// pang_int (section 2.1)
 pang_type struct Int
 {
@@ -66,14 +70,18 @@ pang_type struct Stack
     pang_address stack_pointer;
 } Stack;
 
-/// Section 2.1.2
+/// Section 2.1.2 
 #define pang_null \
-    (Int{true, false, 0})
+    (Int{.is_null=true, .is_ptr=false, .real=0})
+#define pang_nullptr \
+    (Int{.is_null=true, .is_ptr=true, .real=0})
 
 /// Initilizers for each pang structure/type.
 
 #define to_pang_int(imax) \
-    (Int{false, false, imax})
+    (Int{.is_null=false, .is_ptr=false, .real=imax})
+#define to_pang_ptr(imax) \
+    (Int{.is_null=false, .is_ptr=true, .real=imax})
 
 pang_inline(void)
     /// @brief Initializes the stack.
@@ -82,7 +90,7 @@ pang_inline(void)
 {
     pstack->mem[0] = pang_null; // section 2.2.2
     pstack->stack = {0};
-    pstack->stack_pointer = 1;
+    pstack->stack_pointer = 0;
 }
 
 /// Utility for each pang structure/type.
@@ -120,17 +128,50 @@ pang_inline(void)
     push(Stack *pstack,
          intmax_t value)
 {
-    pstack->mem[pstack->stack_pointer] = to_pang_int(value);
-    pstack->stack.push_back(pstack->stack_pointer++);
+    pstack->mem[pstack->stack[pstack->stack_pointer] + 1] = to_pang_int(value);
+    pstack->stack.push_back(pstack->stack[pstack->stack_pointer++] + 1);
 }
 
 pang_inline(void)
-    /// @brief Drops top item from stack.
-    /// @param pstack Pointer to the stack that will be dropped.
-    drop(Stack *pstack)
+    /// @brief Push intmax_t value to stack and memory.
+    /// @param pstack Pointer to the stack that will be pushed to.
+    /// @param value The value to be pushed.
+    push(Stack *pstack,
+         const char *value)
 {
-    pstack->stack_pointer = pstack->stack.back();
-    pstack->stack.pop_back();
+    uint32_t index = 0;
+    pang_address prev_item_addr = pstack->stack[pstack->stack_pointer];
+
+    for (; value[index++];) {
+        pstack->mem[prev_item_addr + index] = to_pang_int(value[index - 1]);
+    }
+
+    // null terminator
+    pstack->mem[prev_item_addr + index++] = pang_nullptr;
+
+    pstack->mem[prev_item_addr + index] = to_pang_ptr(prev_item_addr + 1);
+    pstack->stack.push_back(pstack->stack[pstack->stack_pointer++] + index);    
+}
+
+pang_inline(void)
+    /// @brief Purges n items from top of stack.
+    /// @param pstack Pointer to the stack that will be dropped.
+    /// @param n The amount of items to be purged. (if it is 0, purge all except null)
+    purge(Stack *pstack,
+         pang_address n)
+{
+    if (!n)
+    {
+        pstack->stack = {0};
+        pstack->stack_pointer = 0;
+        return;
+    }
+
+    if (n > pstack->stack_pointer)
+        exit(PANG_NULL_PURGE);
+
+    pstack->stack_pointer -= n;
+    pstack->stack.erase(pstack->stack.end() - n, pstack->stack.end());
 }
 
 pang_inline(void)
@@ -155,6 +196,7 @@ pang_inline(void)
 
     if (to_reference.is_ptr)
         exit(PANG_QUOTE_POINTER);
+    
     if (to_reference.is_null)
         exit(PANG_NULL_QUOTE);
 
