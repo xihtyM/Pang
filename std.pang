@@ -1,17 +1,25 @@
 /* Standard pang library */
 
-include 'os.pang'
+include 'win.pang'
+
+/* Standard calls */
+
+macro purge       0 call end
+macro reference   1 call end
+macro dereference 2 call end
+macro length      3 call end
 
 /* Types */
 
 macro _buf_int  0 end
 macro _buf_char 1 end
 
-/* Booleans */
+/* Booleans/pointers */
 
-macro bool 0! end
+macro bool  0! end
 macro true  1 end
 macro false 0 end
+macro null  0 ptr end
 
 /* Gates */
 
@@ -37,14 +45,12 @@ macro stderr 2 end // standard error reporting file
 
 /* Util */
 
-macro clear 0 purge end
+macro clear null purge end
 macro drop  1 purge end
 
 macro bufi _buf_int  buf end
 macro bufc _buf_char buf end
 
-/* The range macro outputs a list of integers starting at 0 and ending at n, not including n.
-   This list is pushed to the stack. */
 macro range
     dup back // save the range to the back of the stack
     0 dup back // start counter and keep it at the back of the stack
@@ -59,7 +65,6 @@ macro range
     2 purge // get rid of 2 unneeded values
 end
 
-/* The for macro takes 1 integer argument and iterates through the loop that many times. */
 macro for
     1 add range while
 end
@@ -69,7 +74,6 @@ macro mod divmod swap drop end
 
 /* Output */
 
-/* The bufs macro is used to add each character from a string to the output buffer. */
 macro bufs
     dup back dup 0 < while do
         dup 1 add chsin ptr // get ptr to char
@@ -78,47 +82,35 @@ macro bufs
     end drop front
 end
 
-/* The fputi macro takes a file descriptor and an integer as input,
-   and writes the integer to the file specified by the file descriptor. */
 macro fputi
     back bufi front write
 end
 
-/* The fputc macro takes a file descriptor and a character as input,
-   and writes the character to the file specified by the file descriptor. */
 macro fputc
     back bufc front write
 end
 
-/* The fputs macro takes a file descriptor and a string as input,
-   and writes the string to the file specified by the file descriptor. */
 macro fputs
     back bufs front write
 end
 
-/* puti is a macro for printing an integer to stdout. */
 macro puti
     bufi stdout write
 end
 
-/* putc is a macro for printing a character to stdout.*/
 macro putc
     bufc stdout write
 end
 
-/* The puts macro takes a string as input and writes it to the standard output. */
 macro puts
     bufs stdout write
 end
-/* The putln macro takes a string as input and writes it to the standard output,
-   with a newline at the end. */
+
 macro putln
     bufs '\n' bufc drop
     stdout write
 end
 
-/* writes a string to stderr with the prefix "Error: " in red color,
-   and then exits the program with error code 1. */
 macro eputs
     "\x1b[38;2;200;0;0mError: " bufs purge
     back "\x1b[0m" front add bufs
@@ -126,7 +118,6 @@ macro eputs
     stderr write 1 exit // exit with error code 1
 end
 
-/* Clears stdout */
 macro cls
     "\x1b[1;1H\x1b[2J" puts purge
 end
@@ -136,18 +127,12 @@ end
 macro readall 1 chsin end
 macro readln  0 end
 
-/* fread reads the entire contents of a file, and pushes the result to the stack. */
 macro fread readall swap dup back read front end
-
-/* freadln reads a line from a file, and pushes the result to the stack. */
 macro freadln readln swap dup back read front end
-
-/* reads a line from stdin, pushing the result to the stack. */
 macro input readln stdin read end
 
 /* Extra util */
 
-/* Over swaps the third last value and the last value on the stack. */
 macro over
     // If the stack does not contain at least 3 items
     length 3 > if do
@@ -158,12 +143,12 @@ macro over
     front swap
 end
 
-macro array_3d_to_ptr
+macro array_2d_to_ptr
     dup dup back 0 > back
     swap 1 sub dup back
 
     < front swap front or if do
-        "subscript not valid (below 0 or bigger than length of 3d array).\n" eputs
+        "subscript not valid (below 0 or bigger than length of 2d array).\n" eputs
     end front
 
     swap dup back swap
@@ -178,7 +163,7 @@ macro array_3d_to_ptr
     front front 1 add swap
 end
 
-macro append_2d_from_ptr
+macro append_1d_from_ptr
     dup back ptr
     front swap dup back
     sub
@@ -190,4 +175,10 @@ macro append_2d_from_ptr
     end drop ptr
 end
 
-macro array_3d_subscript array_3d_to_ptr append_2d_from_ptr end
+macro array_2d_subscript array_2d_to_ptr append_1d_from_ptr end
+
+"argv[0]: " bufs purge
+0 array_2d_subscript puts
+
+0 exit
+

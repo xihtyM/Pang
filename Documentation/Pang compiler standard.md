@@ -21,6 +21,7 @@ This will be split into x sections, below is a glossary for each section:
 * **2.1.1.1**: A value declaring if the `pang_int` is null or points to null. It will be referred to as `is_null` from now on.
 * **2.1.1.2**: A value declaring if the `pang_int` is a pointer. It will be referred to as `is_ptr` from now on.
 * **2.1.1.3**: The value of the `pang_int` - must be an `intmax_t`. It will be referred to as `real` from now on.
+
 **2.1.2**: The `pang_null` constant:
 * **2.1.2.1**: Real must be 0, is_ptr must be false, and is_null must be true.
 
@@ -36,10 +37,10 @@ This will be split into x sections, below is a glossary for each section:
 * **2.3.4**: The stack must include a stack pointer, which points to the top of memory.
 * **2.3.5**: Pushing to the stack involves the following process:
  - **2.3.5.1**: The value will be placed at `memory[stack pointer:stack pointer + length(value)]`. See length[^1].
- - **2.3.5.2**: The stack pointer will be pushed to the stack (marking the start of the value).
- - **2.3.5.3**: The stack pointer will be incremented by `length(value)`.
+ - **2.3.5.2**: The `stack[stack pointer] + length(value)` will be pushed to the stack (marking the start of the value).
+ - **2.3.5.3**: The stack pointer will be incremented by 1.
 * **2.3.6**: Dropping from the stack involves the following process:
- - **2.3.6.1**: The stack pointer will be set to the last value on the stack.
+ - **2.3.6.1**: The stack pointer will be decremented by 1.
  - **2.3.6.2**: The last value on the stack gets popped.
 
 ## 3: Data types ##

@@ -1,0 +1,38 @@
+macro null 0 quote end
+
+123 321 add
+
+// test to see if allocations work
+4324324
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// buf
+
+macro _buf_int  0 end
+macro _buf_char 1 end
+
+macro bufi _buf_int  buf end
+macro bufc _buf_char buf end
+
+//
+macro bufs
+
+end

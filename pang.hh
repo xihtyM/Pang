@@ -22,7 +22,7 @@
 /// Section 2.2.3:
 /// The amount of pang::Int's the memory can store
 /// inside struct Stack.
-#define PANG_SIZE 0x0fff
+#define PANG_SIZE 0x2000
 
 /// Section 6.3:
 /// All pang errors that can be thrown.
@@ -67,7 +67,8 @@ pang_type struct Stack
 {
     Int mem[PANG_SIZE];
     std::vector<pang_address> stack;
-    pang_address stack_pointer;
+    std::vector<pang_address> freed_mem;
+    pang_address mem_pointer;
 } Stack;
 
 /// Section 2.1.2 
@@ -89,8 +90,9 @@ pang_inline(void)
     initilize_pang(Stack *pstack)
 {
     pstack->mem[0] = pang_null; // section 2.2.2
+    pstack->mem_pointer = 0;
     pstack->stack = {0};
-    pstack->stack_pointer = 0;
+    pstack->freed_mem = {};
 }
 
 /// Utility for each pang structure/type.
@@ -128,8 +130,23 @@ pang_inline(void)
     push(Stack *pstack,
          intmax_t value)
 {
-    pstack->mem[pstack->stack[pstack->stack_pointer] + 1] = to_pang_int(value);
-    pstack->stack.push_back(pstack->stack[pstack->stack_pointer++] + 1);
+    if (!pstack->freed_mem.size())
+    {
+        // if there is no free memory
+        pstack->mem_pointer += 1;
+        pstack->mem[pstack->mem_pointer] = to_pang_int(value);
+        pstack->stack.push_back(pstack->mem_pointer);
+        return;
+    }
+
+    // integers only take 1 place in memory so it is safe to overwrite any freed mem,
+    // just remember to remove it from freed mem afterwards
+    // popping from the top of vector should be the fastest, so we should do that.
+    pstack->mem[pstack->freed_mem.back()] = to_pang_int(value);
+    pstack->stack.push_back(pstack->freed_mem.back());
+
+    // remember to remove from freed memory here
+    pstack->freed_mem.pop_back();
 }
 
 pang_inline(void)
@@ -140,17 +157,18 @@ pang_inline(void)
          const char *value)
 {
     uint32_t index = 0;
-    pang_address prev_item_addr = pstack->stack[pstack->stack_pointer];
+    pang_address prev_item_addr = pstack->mem_pointer;
 
     for (; value[index++];) {
-        pstack->mem[prev_item_addr + index] = to_pang_int(value[index - 1]);
+        pstack->mem[pstack->mem_pointer + index] = to_pang_int(value[index - 1]);
     }
 
     // null terminator
-    pstack->mem[prev_item_addr + index++] = pang_nullptr;
+    pstack->mem[pstack->mem_pointer + index++] = pang_nullptr;
 
-    pstack->mem[prev_item_addr + index] = to_pang_ptr(prev_item_addr + 1);
-    pstack->stack.push_back(pstack->stack[pstack->stack_pointer++] + index);    
+    pstack->mem[pstack->mem_pointer + index] = to_pang_ptr(pstack->mem_pointer + 1);
+    pstack->stack.push_back(pstack->mem_pointer + index);
+    pstack->mem_pointer += index;
 }
 
 pang_inline(void)
@@ -163,14 +181,12 @@ pang_inline(void)
     if (!n)
     {
         pstack->stack = {0};
-        pstack->stack_pointer = 0;
         return;
     }
 
-    if (n > pstack->stack_pointer)
+    if (n > (pstack->stack.size() - 1))
         exit(PANG_NULL_PURGE);
 
-    pstack->stack_pointer -= n;
     pstack->stack.erase(pstack->stack.end() - n, pstack->stack.end());
 }
 
@@ -220,6 +236,40 @@ pang_inline(void)
         exit(PANG_NULL_APPLY);
 
     to_dereference = pstack->mem[to_dereference.real];
+}
+
+pang_inline(void)
+    /// @brief Adds last two integers on stack and pushes result. (pops both integers).
+    /// @param pstack Pointer to the stack.
+    add(Stack *pstack)
+{
+    if (pstack->stack.size() < 3)
+        exit(PANG_NULL_PURGE);
+    
+    intmax_t to_add = pstack->mem[pstack->stack.back()].real;
+
+    // remember to free memory
+    pstack->freed_mem.push_back(pstack->stack.back());
+    pstack->stack.pop_back();
+
+    pstack->mem[pstack->stack.back()].real += to_add;
+}
+
+pang_inline(void)
+    /// @brief Subtracts last two integers on stack and pushes result. (pops both integers).
+    /// @param pstack Pointer to the stack.
+    sub(Stack *pstack)
+{
+    if (pstack->stack.size() < 3)
+        exit(PANG_NULL_PURGE);
+    
+    intmax_t to_sub = pstack->mem[pstack->stack.back()].real;
+    
+    // remember to free memory
+    pstack->freed_mem.push_back(pstack->stack.back());
+    pstack->stack.pop_back();
+
+    pstack->mem[pstack->stack.back()].real -= to_sub;
 }
 
 END_NAMSEPACE_PANG

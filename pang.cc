@@ -26,12 +26,22 @@ int main(int argc, char *argv[])
     pang::initilize_pang(&pstack);
 
     pang::push(&pstack, 123);
-    pang::push(&pstack, "hello");
-    pang::push(&pstack, 789);
-    pang::purge(&pstack, 0);
+    pang::push(&pstack, 321);
+    pang::add(&pstack);
+    pang::push(&pstack, "hi");
+    pang::push(&pstack, 1);
+    pang::sub(&pstack);
 
-    for (int index = 0; index < pstack.stack[pstack.stack_pointer] + 1; index++) {
+    for (int index = 0; index <= pstack.mem_pointer; index++)
+    {
         std::cout << pstack.mem[index] << ' ';
+    }
+
+    std::cout << '\n';
+
+    for (auto addr: pstack.stack)
+    {
+        std::cout << pstack.mem[addr] << ' ';
     }
 
     return 0;

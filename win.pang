@@ -1,0 +1,8 @@
+/* Windows API pang library */
+
+macro STANDARD_CALLS 3 end
+
+/* All windows API calls */
+
+macro CreateFile STANDARD_CALLS 1 add call end
+
