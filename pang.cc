@@ -25,12 +25,19 @@ int main(int argc, char *argv[])
     pang::Stack pstack;
     pang::initilize_pang(&pstack);
 
-    pang::push(&pstack, 123);
-    pang::push(&pstack, 321);
-    pang::add(&pstack);
-    pang::push(&pstack, "hi");
-    pang::push(&pstack, 1);
-    pang::sub(&pstack);
+    pang::push(&pstack, "hello");
+    pang::free(&pstack);
+    pang::purge(&pstack, 1);
+    pang::push(&pstack, "test");
+    //pang::push(&pstack, 4324);
+
+
+    for (auto tup: pstack.freed_mem)
+    {
+        std::cout << std::get<0>(tup) << '-' << std::get<1>(tup) << ' ';
+    }
+
+    std::cout << '\n';
 
     for (int index = 0; index <= pstack.mem_pointer; index++)
     {
