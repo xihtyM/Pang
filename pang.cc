@@ -153,6 +153,7 @@ int main(int argc, char *argv[])
     pang::purge(&pstack, 1);
     pang::push(&pstack, "tests");
     pang::push(&pstack, 4324);
+    pang::swap(&pstack);
     print_stuff(pstack);
 
     return 0;

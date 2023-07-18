@@ -3,9 +3,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <cstring>
-#include <utility>
-#include <tuple>
 
 /// Use instead of namespace pang after this.
 #define START_NAMESPACE_PANG namespace pang {
