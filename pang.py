@@ -167,7 +167,6 @@ def run_program() -> None:
     lex_src = Lexer(src, sys.argv[1])
     lex_src.get_tokens()
 
-    print("You must have g++ in order to compile pang.")
     name = "temp.cc" if not cpp else outname + ".cc"
 
     open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks))

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -54,6 +56,8 @@ pang_type uint16_t pang_address;
 /// If the pang address needs to be signed, use this.
 pang_type int32_t spang_address;
 
+pang_type std::tuple<pang_address, pang_address> free_tuple;
+
 /// pang_int (section 2.1)
 pang_type struct Int
 {
@@ -66,7 +70,7 @@ pang_type struct Stack
 {
     Int mem[PANG_SIZE];
     std::vector<pang_address> stack;
-    std::vector<std::tuple<pang_address, pang_address>> freed_mem;
+    std::vector<free_tuple> freed_mem;
     pang_address mem_pointer;
 } Stack;
 
@@ -141,7 +145,7 @@ pang_inline(void)
     // integers only take 1 place in memory so it is safe to overwrite any freed mem,
     // just remember to remove it from freed mem afterwards
     // popping from the top of vector should be the fastest, so we should do that.
-    auto free_block(pstack->freed_mem.back());
+    free_tuple &free_block(pstack->freed_mem.back());
     std::get<1>(free_block)--;
     pang_address to_alloc = std::get<0>(free_block) + std::get<1>(free_block);
     
@@ -171,6 +175,23 @@ pang_inline(void)
     pstack->freed_mem.push_back(std::make_tuple(ptr.real, len+1));
 }
 
+pang_inline(free_tuple &)
+    ///
+    ///
+    ///
+    _find_free_block(
+        Stack *pstack,
+        pang_address len)
+{
+    for (free_tuple &free_block: pstack->freed_mem)
+    {
+        if (std::get<1>(free_block) >= len)
+            return free_block;
+    }
+    
+    return 
+}
+
 pang_inline(void)
     /// @brief Push intmax_t value to stack and memory.
     /// @param pstack Pointer to the stack that will be pushed to.
@@ -179,41 +200,9 @@ pang_inline(void)
          const char *value)
 {
     pang_address len = strlen(value) + 1;
-    pang_address index = 0;
-    pang_address start = pstack->mem_pointer;
 
-    for (auto it = pstack->freed_mem.begin(); it != pstack->freed_mem.end(); it++)
-    {
-        auto free_block = *it;
-        if (std::get<1>(free_block) > len)
-        {
-            std::get<1>(free_block) -= len;
-            
-            start = std::get<0>(free_block);
-            std::get<0>(free_block) += len;
-
-            if (!std::get<1>(free_block))
-            {
-                pstack->freed_mem.erase(it);
-            }
-
-            break;
-        }
-    }
-
-    for (; value[index++];)
-    {
-        pstack->mem[start + index] = to_pang_int(value[index - 1]);
-    }
-
-    // null terminator
-    pstack->mem[start + index++] = pang_nullptr;
-    pstack->mem[start + index] = to_pang_ptr(start + 1);
-
-    pstack->stack.push_back(start + index);
-
-    if (start == pstack->mem_pointer)
-        pstack->mem_pointer += index;
+    free_tuple &free_block = _find_free_block(
+        pstack, len);
 }
 
 pang_inline(void)
@@ -234,8 +223,8 @@ pang_inline(void)
     if (n > (pstack->stack.size() - 1))
         exit(PANG_NULL_PURGE);
 
-    for (auto addr: pstack->stack)
-        pstack->freed_mem.push_back(std::make_tuple(addr, 1));
+    for (auto it = pstack->stack.rbegin(); it != pstack->stack.rbegin() + n; it++)
+        pstack->freed_mem.push_back(std::make_tuple(*it, 1));
     
     pstack->stack.erase(pstack->stack.end() - n, pstack->stack.end());
 }
