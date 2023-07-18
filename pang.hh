@@ -56,8 +56,6 @@ pang_type uint16_t pang_address;
 /// If the pang address needs to be signed, use this.
 pang_type int32_t spang_address;
 
-pang_type std::tuple<pang_address, pang_address> free_tuple;
-
 /// pang_int (section 2.1)
 pang_type struct Int
 {
@@ -66,11 +64,17 @@ pang_type struct Int
     intmax_t real;
 } Int;
 
+pang_type struct FreeBlock
+{
+    pang_address start;
+    pang_address len;
+} FreeBlock;
+
 pang_type struct Stack
 {
     Int mem[PANG_SIZE];
     std::vector<pang_address> stack;
-    std::vector<free_tuple> freed_mem;
+    std::vector<FreeBlock> freed_mem;
     pang_address mem_pointer;
 } Stack;
 
@@ -93,7 +97,7 @@ pang_inline(void)
     initilize_pang(Stack *pstack)
 {
     pstack->mem[0] = pang_null; // section 2.2.2
-    pstack->mem_pointer = 0;
+    pstack->mem_pointer = 1;
     pstack->stack = {0};
     pstack->freed_mem = {};
 }
@@ -124,38 +128,8 @@ operator<<(std::ostream &os,
 START_NAMESPACE_PANG
 
 /// Following inline stack operations:
-/// push, drop, swap, quote, apply
+/// 
 
-pang_inline(void)
-    /// @brief Push intmax_t value to stack and memory.
-    /// @param pstack Pointer to the stack that will be pushed to.
-    /// @param value The value to be pushed.
-    push(Stack *pstack,
-         intmax_t value)
-{
-    if (!pstack->freed_mem.size())
-    {
-        // if there is no free memory
-        pstack->mem_pointer += 1;
-        pstack->mem[pstack->mem_pointer] = to_pang_int(value);
-        pstack->stack.push_back(pstack->mem_pointer);
-        return;
-    }
-
-    // integers only take 1 place in memory so it is safe to overwrite any freed mem,
-    // just remember to remove it from freed mem afterwards
-    // popping from the top of vector should be the fastest, so we should do that.
-    free_tuple &free_block(pstack->freed_mem.back());
-    std::get<1>(free_block)--;
-    pang_address to_alloc = std::get<0>(free_block) + std::get<1>(free_block);
-    
-    pstack->mem[to_alloc] = to_pang_int(value);
-    pstack->stack.push_back(to_alloc);
-
-    // remember to remove from freed memory here
-    if (!std::get<1>(free_block))
-        pstack->freed_mem.pop_back();
-}
 
 pang_inline(void)
     /// @brief Frees a pointer's contents until null is found.
@@ -170,64 +144,50 @@ pang_inline(void)
     pang_address len = 0;
 
     // calculate length
-    for (; !pstack->mem[ptr.real + len].is_null; len++);
+    for (; pstack->mem[ptr.real + len].real; len++);
+    len++;
 
-    pstack->freed_mem.push_back(std::make_tuple(ptr.real, len+1));
+    pstack->freed_mem.push_back({(pang_address) ptr.real, len});
 }
 
-pang_inline(free_tuple &)
-    ///
-    ///
-    ///
+pang_inline(spang_address)
+    /// @brief Finds a free block that can hold len or above pang ints.
+    /// @param pstack pointer to the stack structure.
+    /// @param len the length the block must hold
+    /// @return The index of the freed_mem block that holds enough (-1 when not found).
     _find_free_block(
         Stack *pstack,
         pang_address len)
 {
-    for (free_tuple &free_block: pstack->freed_mem)
+    for (spang_address index = 0; index < (spang_address) pstack->freed_mem.size(); index++)
     {
-        if (std::get<1>(free_block) >= len)
-            return free_block;
+        if (pstack->freed_mem[index].len >= len)
+            return index;
     }
     
-    return 
+    return -1;
 }
 
-pang_inline(void)
+pang_func(void)
     /// @brief Push intmax_t value to stack and memory.
     /// @param pstack Pointer to the stack that will be pushed to.
     /// @param value The value to be pushed.
     push(Stack *pstack,
-         const char *value)
-{
-    pang_address len = strlen(value) + 1;
+         intmax_t value);
 
-    free_tuple &free_block = _find_free_block(
-        pstack, len);
-}
+pang_func(void)
+    /// @brief Push intmax_t value to stack and memory.
+    /// @param pstack Pointer to the stack that will be pushed to.
+    /// @param value The value to be pushed.
+    push(Stack *pstack,
+         const char *value);
 
-pang_inline(void)
+pang_func(void)
     /// @brief Purges n items from top of stack.
     /// @param pstack Pointer to the stack that will be dropped.
     /// @param n The amount of items to be purged. (if it is 0, purge all except null)
     purge(Stack *pstack,
-         pang_address n)
-{
-    if (!n)
-    {
-        pstack->stack = {0};
-        pstack->mem_pointer = 0;
-        pstack->freed_mem = {};
-        return;
-    }
-
-    if (n > (pstack->stack.size() - 1))
-        exit(PANG_NULL_PURGE);
-
-    for (auto it = pstack->stack.rbegin(); it != pstack->stack.rbegin() + n; it++)
-        pstack->freed_mem.push_back(std::make_tuple(*it, 1));
-    
-    pstack->stack.erase(pstack->stack.end() - n, pstack->stack.end());
-}
+         pang_address n);
 
 pang_inline(void)
     /// @brief Swaps last two items on the stack.
@@ -288,7 +248,7 @@ pang_inline(void)
     intmax_t to_add = pstack->mem[pstack->stack.back()].real;
 
     // remember to free memory
-    pstack->freed_mem.push_back(std::make_tuple(pstack->stack.back(), 1));
+    pstack->freed_mem.push_back({pstack->stack.back(), (pang_address) 1});
     pstack->stack.pop_back();
 
     pstack->mem[pstack->stack.back()].real += to_add;
@@ -305,7 +265,7 @@ pang_inline(void)
     intmax_t to_sub = pstack->mem[pstack->stack.back()].real;
     
     // remember to free memory
-    pstack->freed_mem.push_back(std::make_tuple(pstack->stack.back(), 1));
+    pstack->freed_mem.push_back({pstack->stack.back(), (pang_address) 1});
     pstack->stack.pop_back();
 
     pstack->mem[pstack->stack.back()].real -= to_sub;
