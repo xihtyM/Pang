@@ -46,7 +46,7 @@ int main(void)
     if (install("xihtyM/pang/main", NULL, "Pang"))
     {
         perror("Couldn't install xihtyM/pang/main, make sure you are running as administrator.");
-        return 0;
+        return 1;
     }
 
     set_pang_variable();

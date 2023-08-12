@@ -38,81 +38,107 @@ def remove_newline(_Str: str) -> str:
 
     return "\n".join(seperated[:-1]) + "\n"
 
+def remove_prev_2(toks: list[Token]):
+    indexes = []
+    for index, tok in enumerate(toks[::-1], 1):
+        if len(indexes) >= 2:
+            break
+        
+        if tok.typ in (TokenType.INT, TokenType.ADD,
+                       TokenType.SUB, TokenType.MUL,
+                       TokenType.DIV, TokenType.MOD,
+                       TokenType.DUP):
+            indexes.append(index)
+    
+    if len(indexes) != 2:
+        Croak(ErrorType.Compile, "optimisation error, open issue on github")
+    
+    toks.pop(-min(indexes))
+    toks.pop(-(max(indexes) - 1))
 
-def compile_ops(toks: list[Token]) -> str:
-    """ Compiles to C++ """
+def compile_ops(toks: list[Token]):
+    out  = "bits 64\n"
+    out += "default rel\n"
+    out += "\n"
+    out += "segment .data\n"
+    out += "    buf db \"%c\", 0\n"
+    out += "\n"
+    out += "segment .text\n"
+    out += "    global main\n"
+    out += "\n"
+    out += "    extern ExitProcess\n"
+    out += "    extern printf\n"
+    out += "\n"
+    out += "main:\n"
     
-    if len(toks) <= 0:
-        Croak(ErrorType.Compile, "nothing to compile")
+    stack = []
+    new_toks: list[Token] = []
     
-    out = ""
-    indent_width = 4
-    
+    # optimise tokens
     for tok in toks:
-        if tok.typ == TokenType.STR:
-            out += "%spang::push(&pstack, %s);\n" % (
-                " " * indent_width, tok.raw)
-        elif tok.typ == TokenType.INT:
-            out += "%spang::push(&pstack, (intmax_t) %d);\n" % (
-                " " * indent_width, tok.value)
-        elif tok.typ == TokenType.ADD:
-            out += "%spang::add(&pstack);\n" % (
-                " " * indent_width)
-        elif tok.typ == TokenType.SUB:
-            out += "%spang::sub(&pstack);\n" % (
-                " " * indent_width)
-        elif tok.typ == TokenType.APPLY:
-            out += "%spang::apply(&pstack);\n" % (
-                " " * indent_width)
-        elif tok.typ == TokenType.QUOTE:
-            out += "%spang::quote(&pstack);\n" % (
-                " " * indent_width)
-        elif tok.typ == TokenType.BUF:
-            out += "%spang::buf(&pstack);\n" % (
-                " " * indent_width)
+        new_toks.append(tok)
+        
+        match tok.typ:
+            case TokenType.INT:
+                stack.append(tok.value)
+            case TokenType.ADD:
+                if len(stack) >= 2:
+                    stack.append(stack.pop() + stack.pop())
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.SUB:
+                if len(stack) >= 2:
+                    stack.append(-stack.pop() + stack.pop())
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.MUL:
+                if len(stack) >= 2:
+                    stack.append(stack.pop() * stack.pop())
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.BUF:
+                stack = []
+    
+    for tok in new_toks:
+        out += "    ; %s - \"%s\" line %d\n" % (tok.typ._name_, tok.filename, tok.ln)
+        match tok.typ:
+            case TokenType.INT:
+                out += "    push    %d\n\n" % tok.value
+            case TokenType.ADD:
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    add     rax, rbx\n"
+                out += "    push    rax\n\n"
+            case TokenType.SUB:
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    sub     rax, rbx\n"
+                out += "    push    rax\n\n"
+            case TokenType.MUL:
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    imul    rax, rbx\n"
+                out += "    push    rax\n\n"
+            case TokenType.DUP:
+                out += "    push    qword [rsp]\n\n"
+            case TokenType.DROP:
+                out += "    pop     rax\n\n"
+            case TokenType.BUF:
+                out += "    ; temporary replacement of buf to print last item on stack\n"
+                out += "    pop     rdx\n"
+                out += "    push    rdx\n"
+                out += "    sub     rsp, 32\n"
+                out += "    lea     rcx, [buf]\n"
+                out += "    call    printf\n"
+                out += "    add     rsp, 32\n\n"
 
-    start  = "#include \"pang.hh\"\n\n"
-    start += "pang_func(std::ostream &)\n"
-    start += "operator<<(std::ostream &os,\n"
-    start += "        pang::Int &p_int)\n"
-    start += "{\n"
-    start += "    if (p_int.is_null)\n"
-    start += "    {\n"
-    start += "        os << \"null\";\n"
-    start += "        return os;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    if (p_int.is_ptr)\n"
-    start += "    {\n"
-    start += "        os << \"ptr(\" << p_int.real << \")\";\n"
-    start += "        return os;\n"
-    start += "    }\n"
-    start += "\n"
-    start += "    os << p_int.real;\n"
-    start += "    return os;\n"
-    start += "}\n"
-    start += "\n"
-    start += "int main(int argc, char *argv[])\n"
-    start += "{\n"
-    start += "    pang::Stack pstack;\n"
-    start += "    pang::initilize_pang(&pstack);\n\n"
+    out += "    xor     rax, rax\n"
+    out += "    call    ExitProcess\n"
     
-    end  = "\n    for (int index = 0; index <= pstack.mem_pointer; index++)\n"
-    end += "    {\n"
-    end += "        std::cout << pstack.mem[index] << ' ';\n"
-    end += "    }\n"
-    end += "\n"
-    end += "    std::cout << '\\n';\n"
-    end += "\n"
-    end += "    for (auto addr: pstack.stack)\n"
-    end += "    {\n"
-    end += "        std::cout << pstack.mem[addr] << ' ';\n"
-    end += "    }\n"
-    end += "\n"
-    end += "    return 0;\n"
-    end += "}\n"
-    
-    return start + out + end
+    return out
 
 def join(l: list[int]) -> str:
     out = ""
@@ -123,17 +149,13 @@ def join(l: list[int]) -> str:
     return out
 
 def run_program() -> None:
-    optimise = False
     filename = False
-    cpp = False
     asm = False
-    gdb = False
-    keep_temp = False
 
     outname = "a"
-    optimise_flag = " "
+    src_filename = None
     
-    for arg in sys.argv:
+    for arg in sys.argv[1:]: # remove main name
         if filename:
             outname = arg
             filename = None
@@ -142,53 +164,31 @@ def run_program() -> None:
                 Croak(ErrorType.Command, "cannot have two output names...")
             
             filename = True
-        elif arg.startswith("-O"):
-            if len(arg) != 3:
-                Croak(ErrorType.Command, "invalid flag %s" % arg)
-            elif not arg[2].isnumeric():
-                Croak(ErrorType.Command, "invalid flag %s" % arg)
-            
-            optimise = True
-            optimise_flag = " %s" % arg
         elif arg == "-S":
             asm = True
-        elif arg in ("-C", "-cpp"):
-            cpp = True
-        elif arg == "-g":
-            gdb = True
-        elif arg == "-t":
-            keep_temp = True
+        else:
+            if src_filename:
+                Croak(ErrorType.Command, "can only compile 1 file at a time")
+            src_filename = arg
     
-    if len(sys.argv) < 2:
-        Croak(ErrorType.Command, "must input a file name")
+    if not src_filename:
+        Croak(ErrorType.Command, "no filename provided")
     
-    src = open(sys.argv[1], "r", encoding="utf-8").read()
+    src = open(src_filename, "r", encoding="utf-8").read()
     
-    lex_src = Lexer(src, sys.argv[1])
+    lex_src = Lexer(src, src_filename)
     lex_src.get_tokens()
 
-    name = "temp.cc" if not cpp else outname + ".cc"
+    name = "temp.s" if not asm else outname + ".s"
 
-    open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks))
-    command = "g++ %s -o %s -Werror -Bdynamic -lstdc++" % (name, outname)
-
-    if gdb:
-        command += " -g"
-    else:
-        command += " -s"
-
-    if optimise:
-        command += "%s" % optimise_flag
-    if asm:
-        command += " -S"
-    
-    if not cpp:
-        os.system(command)
-        if not keep_temp:
-            os.remove(name)
+    open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks))    
         
-    elif asm:
-        os.system(command)
+    os.system("nasm -fwin64 %s -o temp.obj" % name)
+    os.system("ld -s temp.obj -o %s.exe -e main -lkernel32 -lmsvcrt" % outname)
+    os.remove("temp.obj")
+    
+    if not asm:
+        os.remove("temp.s")
 
 if __name__ == "__main__":
     run_program()
