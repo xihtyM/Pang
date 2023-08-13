@@ -1,36 +1,3 @@
-// 0, 0, 13, str, handle(-11)
-//asm GetStdHandle "
-//    pop     rcx
-//    call    GetStdHandle
-//    push    rcx
-//"
+include 'std.pang'
 
-asm strlen "
-    xor     rax, rax
-    mov     rdi, [rsp + 8]
-
-.loop:
-    cmp     byte [rdi + rax], 0
-    je      .done
-
-    inc     rax
-    jmp     .loop
-
-.done:
-"
-
-asm _puts "
-    mov     r8, rax
-    mov     rdx, [rsp + 8]
-    mov     rcx, -11
-    call    GetStdHandle
-    mov     rcx, rax
-    xor     r9, r9
-    call    WriteFile
-"
-
-macro puts
-    strlen _puts
-end
-
-"Hello, world!\n" puts
+"Hello, World!\n" puts

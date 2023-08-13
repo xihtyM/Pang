@@ -244,7 +244,7 @@ class Lexer():
         new_toks.get_tokens_without_macros()
 
         self.includes.append(include_filename)
-
+        self.assembly.update(new_toks.assembly)
         self.toks += new_toks.toks
 
     def asm(self) -> None:
@@ -278,8 +278,9 @@ class Lexer():
         
         self.assembly[name] = self.assembly[name].strip("\n")
         self.assembly[name] += "\n    ret"
-        self._get()
 
+        self._get()
+    
     def identifier(self) -> None:
         start = self.index
         raw = self._get()
@@ -359,7 +360,7 @@ class Lexer():
     
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
-
+        
         macro_added_toks = []
         macro = False
         macro_name = False
@@ -429,6 +430,7 @@ class Lexer():
                     cur_toks.append(tok)
                 else:
                     asm_name = "__" + tok.value + "_def_asm"
+                    
                     if tok.value not in macros and asm_name not in self.assembly:
                         Croak(
                             ErrorType.Name,

@@ -17,13 +17,7 @@ import os
 
 ## Pang constants ##
 
-T_READLINE = 0
-T_READALL = -1
-
-MAX_PREALLOC = 1024
-PRE_ARGV_ALLOCATE = 32
-
-PANG_SYS = os.getenv("pang")
+PANG_SYS = None# for testing purposes os.getenv("pang")
 
 if PANG_SYS is None:
     PANG_SYS = os.path.dirname(os.path.realpath(__file__))
@@ -65,27 +59,31 @@ class TokenType(Enum):
     LSHIFT = auto()
     RSHIFT = auto()
 
-    # All ended statements
-    IF = auto()
-    DO = auto()
-    END = auto()
-    WHILE = auto()
+    # Preprocessor
     MACRO = auto()
+    END = auto()
+    
+    # Jumps/conditionals
+    JMP = auto()
+    LABEL = auto()
 
     # Push to stack
     INT = auto()
     STR = auto()
+    DOUBLE = auto()
 
     # Arithmetic
     SUB = auto()
     ADD = auto()
     MUL = auto()
-    DIVMOD = auto()
+    DIV = auto()
+    MOD = auto()
 
     # Stack operations
     DUP = auto()
     SWAP = auto()
     BACK = auto()
+    DROP = auto()
     FRONT = auto()
 
     # Conditionals
@@ -96,9 +94,9 @@ class TokenType(Enum):
 
     # Edit output buffer
     BUF = auto()
-
-    # Calls
-    CALL = auto()
+    
+    # Assembly
+    ASM = auto()
 
     # Pointers
     APPLY = auto()
@@ -161,43 +159,23 @@ keyword_map = {
     "rshift": TokenType.RSHIFT,
 
     # Normal tokens
-    "if": TokenType.IF,
     "add": TokenType.ADD,
     "sub": TokenType.SUB,
     "mul": TokenType.MUL,
     "dup": TokenType.DUP,
     "buf": TokenType.BUF,
+    "div": TokenType.DIV,
+    "mod": TokenType.MOD,
+    "jmp": TokenType.JMP,
+    "drop": TokenType.DROP,
     "swap": TokenType.SWAP,
     "back": TokenType.BACK,
-    "while": TokenType.WHILE,
     "front": TokenType.FRONT,
-    "divmod": TokenType.DIVMOD,
     "apply": TokenType.APPLY,
     "quote": TokenType.QUOTE,
-    "call": TokenType.CALL,
 }
 
 def Croak(err_typ: ErrorType, *msg: str):
     """ Use Croak() for every pang error. """
     print("%sError: " % err_typ._name_, *msg, sep="")
     exit(1)
-
-def find_end(index: int, ops: list[Token]) -> int:
-    """ Find the end of a selection block/macro. """
-    skip_end = 0
-    end = index
-    size = len(ops) - 1
-
-    while end < size:
-        end += 1
-
-        if ops[end].typ == TokenType.DO:
-            skip_end += 1
-        
-        if ops[end].typ == TokenType.END:
-            if not skip_end:
-                return end
-
-            skip_end -= 1
-    
-    Croak(ErrorType.Syntax, "expected end (at line %d)" % (ops[index].ln))

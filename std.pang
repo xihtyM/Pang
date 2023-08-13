@@ -1,184 +1,41 @@
-/* Standard pang library */
+// 0, 0, 13, str, handle(-11)
+//asm GetStdHandle "
+//    pop     rcx
+//    call    GetStdHandle
+//    push    rcx
+//"
 
-include 'win.pang'
+asm _strlen "
+    xor     rax, rax
+    mov     rdi, [rsp + 8]
 
-/* Standard calls */
+.loop:
+    cmp     byte [rdi + rax], 0
+    je      .done
 
-macro purge       0 call end
-macro reference   1 call end
-macro dereference 2 call end
-macro length      3 call end
+    inc     rax
+    jmp     .loop
 
-/* Types */
+.done:
+    pop     rbx
+    push    rax
+    push    rbx
+"
 
-macro _buf_int  0 end
-macro _buf_char 1 end
+asm _puts "
+    mov     r8, [rsp + 8]
+    mov     rdx, [rsp + 16]
+    mov     rcx, -11
+    call    GetStdHandle
+    mov     rcx, rax
+    xor     r9, r9
+    call    WriteFile
+"
 
-/* Booleans/pointers */
-
-macro bool  0! end
-macro true  1 end
-macro false 0 end
-macro null  0 ptr end
-
-/* Gates */
-
-macro not 0 = end
-
-macro or bool swap bool add 0 ! end
-macro and bool swap bool add 2 = end 
-macro chsin 0 swap sub end
-
-// if the if statement is false
-// note: the condition must be duped as it gets popped.
-// note: in the if block before the else,
-//       if you push false after it will run the else block.
-macro else not if end
-
-/* * * * * * * * *
- * STDIO streams *
- * * * * * * * * */
-
-macro stdin  0 end // standard input file
-macro stdout 1 end // standard output file
-macro stderr 2 end // standard error reporting file
-
-/* Util */
-
-macro clear null purge end
-macro drop  1 purge end
-
-macro bufi _buf_int  buf end
-macro bufc _buf_char buf end
-
-macro range
-    dup back // save the range to the back of the stack
-    0 dup back // start counter and keep it at the back of the stack
-
-    < while do
-        front dup // add the first count to the stack
-        1 add // increment counter
-        front dup back
-        swap dup back <
-    end front front
-
-    2 purge // get rid of 2 unneeded values
-end
-
-macro for
-    1 add range while
-end
-
-macro div divmod drop end
-macro mod divmod swap drop end
-
-/* Output */
-
-macro bufs
-    dup back dup 0 < while do
-        dup 1 add chsin ptr // get ptr to char
-        bufc drop // add the char to the buffer and drop it
-        1 sub dup // minus 1 from length
-    end drop front
-end
-
-macro fputi
-    back bufi front write
-end
-
-macro fputc
-    back bufc front write
-end
-
-macro fputs
-    back bufs front write
-end
-
-macro puti
-    bufi stdout write
-end
-
-macro putc
-    bufc stdout write
-end
+macro stderr_fileno 2 end
+macro stdout_fileno 1 end
+macro stdin_fileno 0 end
 
 macro puts
-    bufs stdout write
+    _strlen _puts
 end
-
-macro putln
-    bufs '\n' bufc drop
-    stdout write
-end
-
-macro eputs
-    "\x1b[38;2;200;0;0mError: " bufs purge
-    back "\x1b[0m" front add bufs
-
-    stderr write 1 exit // exit with error code 1
-end
-
-macro cls
-    "\x1b[1;1H\x1b[2J" puts purge
-end
-
-/* Input */
-
-macro readall 1 chsin end
-macro readln  0 end
-
-macro fread readall swap dup back read front end
-macro freadln readln swap dup back read front end
-macro input readln stdin read end
-
-/* Extra util */
-
-macro over
-    // If the stack does not contain at least 3 items
-    length 3 > if do
-        "Must have at least 3 items on the stack for macro over.\n" eputs
-    end
-    
-    swap back swap
-    front swap
-end
-
-macro array_2d_to_ptr
-    dup dup back 0 > back
-    swap 1 sub dup back
-
-    < front swap front or if do
-        "subscript not valid (below 0 or bigger than length of 2d array).\n" eputs
-    end front
-
-    swap dup back swap
-    sub 2 chsin back dup while do
-        1 sub front
-        dup back ptr
-        1 add front
-        swap sub
-        back dup
-    end drop
-
-    front front 1 add swap
-end
-
-macro append_1d_from_ptr
-    dup back ptr
-    front swap dup back
-    sub
-
-    front dup while do
-        1 sub back
-        dup back ptr
-        front front dup
-    end drop ptr
-end
-
-macro array_2d_subscript array_2d_to_ptr append_1d_from_ptr end
-
-"argv[0]: " bufs purge
-0 array_2d_subscript puts
-
-0 exit
-
