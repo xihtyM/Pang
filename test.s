@@ -1,42 +1,50 @@
 bits 64
 default rel
 
-segment .data
-    buf db "%c", 0
-
 segment .text
     global main
 
-    extern ExitProcess
-    extern printf
+    extern ExitProcess, WriteFile, GetStdHandle
 
 main:
-    ; INT - "test.pang" line 1
-    push    105
+    ; STR - "test.pang" line 37
+    lea     rax, [string_0]
+    sub     rsp, 8
+    push    rax
 
-    ; INT - "test.pang" line 1
-    push    104
+    ; ID - "test.pang" line 37
+    call    __strlen_def_asm
 
-    ; BUF - "test.pang" line 1
-    ; temporary replacement of buf to print last item on stack
-    pop     rdx
-    push    rdx
-    sub     rsp, 32
-    lea     rcx, [buf]
-    call    printf
-    add     rsp, 32
+    ; ID - "test.pang" line 37
+    call    ___puts_def_asm
 
-    ; DROP - "test.pang" line 1
-    pop     rax
-
-    ; BUF - "test.pang" line 1
-    ; temporary replacement of buf to print last item on stack
-    pop     rdx
-    push    rdx
-    sub     rsp, 32
-    lea     rcx, [buf]
-    call    printf
-    add     rsp, 32
-
+    add     rsp, 8
     xor     rax, rax
     call    ExitProcess
+
+__strlen_def_asm:
+    xor     rax, rax
+    mov     rdi, [rsp + 8]
+
+.loop:
+    cmp     byte [rdi + rax], 0
+    je      .done
+
+    inc     rax
+    jmp     .loop
+
+.done:
+    ret
+
+___puts_def_asm:
+    mov     r8, rax
+    mov     rdx, [rsp + 8]
+    mov     rcx, -11
+    call    GetStdHandle
+    mov     rcx, rax
+    xor     r9, r9
+    call    WriteFile
+    ret
+
+segment .data
+    string_0 db 72,101,108,108,111,44,32,119,111,114,108,100,33,10,0
