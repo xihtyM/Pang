@@ -1,4 +1,0 @@
-include 'std.pang'
-
-10 bufi // append "10" to the output buffer
-stdout write // print to stdout

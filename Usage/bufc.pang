@@ -1,6 +1,0 @@
-include 'std.pang'
-
-'H' bufc // append "H" to the output buffer
-'i' bufc // append "i" to the output buffer
-10 bufc // append the newline character to the output buffer (could be written as '\n')
-stdout write // print to stdout

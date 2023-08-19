@@ -1,41 +1,27 @@
-// 0, 0, 13, str, handle(-11)
-//asm GetStdHandle "
-//    pop     rcx
-//    call    GetStdHandle
-//    push    rcx
-//"
+// BUILTIN TYPES
+macro sizeof_char       1 end
+macro sizeof_short      2 end
+macro sizeof_int        4 end
+macro sizeof_long       4 end
+macro sizeof_float      4 end
+macro sizeof_long_long  8 end
+macro sizeof_double     8 end
+macro sizeof_ptr        8 end
 
-asm _strlen "
-    xor     rax, rax
-    mov     rdi, [rsp + 8]
 
-.loop:
-    cmp     byte [rdi + rax], 0
-    je      .done
+// STDINT
+macro sizeof_int8_t     1 end
+macro sizeof_int16_t    2 end
+macro sizeof_int32_t    4 end
+macro sizeof_int64_t    8 end
+macro sizeof_uint8_t    1 end
+macro sizeof_uint16_t   2 end
+macro sizeof_uint32_t   4 end
+macro sizeof_uint64_t   8 end
+macro sizeof_size_t     8 end
+macro sizeof_intmax_t   8 end
 
-    inc     rax
-    jmp     .loop
+include 'coreprt.pang'
 
-.done:
-    pop     rbx
-    push    rax
-    push    rbx
-"
+macro NULL 0 end
 
-asm _puts "
-    mov     r8, [rsp + 8]
-    mov     rdx, [rsp + 16]
-    mov     rcx, -11
-    call    GetStdHandle
-    mov     rcx, rax
-    xor     r9, r9
-    call    WriteFile
-"
-
-macro stderr_fileno 2 end
-macro stdout_fileno 1 end
-macro stdin_fileno 0 end
-
-macro puts
-    _strlen _puts
-end

@@ -1,5 +1,0 @@
-include 'std.pang'
-
-50 bool puti // turns to 1, or true
-'\n' putc drop // just a newline for readability
-false bool puti // stays as 0, or false

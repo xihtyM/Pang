@@ -1,3 +1,2 @@
 include 'std.pang'
-
-"Hello, World!\n" puts
+UINTMAX_MAX "Largest possible number: %llu\n" call printf

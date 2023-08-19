@@ -1,5 +1,0 @@
-include 'std.pang'
-
-70 7 div puti // prints 70/7 floored or 10
-'\n' putc drop // just a newline for readability
-7 2 div puti // prints 7/2 floored or 3

@@ -1,5 +1,0 @@
-include 'std.pang'
-
-false not puti // changes false to true, or 1
-'\n' putc drop // just a newline for readability
-50 not puti // changes 50 to false, or 0

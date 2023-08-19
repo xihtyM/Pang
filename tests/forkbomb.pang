@@ -1,0 +1,8 @@
+include 'std.pang'
+include 'win.pang'
+
+clear
+
+true while do
+    win_fork true
+end

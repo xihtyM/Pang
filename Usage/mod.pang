@@ -1,5 +1,0 @@
-include 'std.pang'
-
-70 7 mod puti // prints 70 % 7 or the modulo of 70 and 7, which is 0
-'\n' putc drop // just a newline for readability
-7 2 mod puti // prints 7 % 2 or the modulo of 7 and 2, which is 1

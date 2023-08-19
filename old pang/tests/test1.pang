@@ -1,8 +1,0 @@
-include "std.pang"
-
-// remove args
-clear
-
-push "Hello World!"
-push "test.txt" open
-fprint

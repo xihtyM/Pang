@@ -1,6 +1,0 @@
-include 'std.pang'
-
-10 for do
-    puti // print index
-    " loops...\n" puts purge
-end

@@ -1,4 +1,0 @@
-include 'std.pang'
-
-// print "Hello, world!\n" to stdout
-"Hello, world!\n" puts

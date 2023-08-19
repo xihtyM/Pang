@@ -19,7 +19,7 @@ def remove_prev_2(toks: list[Token]):
     toks.pop(-min(indexes))
     toks.pop(-(max(indexes) - 1))
 
-def compile_ops(toks: list[Token], asm_funcs: dict[str, str]):
+def compile_ops(toks: list[Token], calls: list[str]):
     strings = []
     
     stack = []
@@ -32,7 +32,6 @@ def compile_ops(toks: list[Token], asm_funcs: dict[str, str]):
         match tok.typ:
             case TokenType.INT:
                 stack.append(tok.value)
-                allocs += 1
             case TokenType.ADD:
                 if len(stack) >= 2:
                     stack.append(stack.pop() + stack.pop())
@@ -60,7 +59,7 @@ def compile_ops(toks: list[Token], asm_funcs: dict[str, str]):
     out += "segment .text\n"
     out += "    global main\n"
     out += "\n"
-    out += "    extern ExitProcess, WriteFile, GetStdHandle\n"
+    out += "    extern ExitProcess, %s\n" % ", ".join(calls)
     out += "\n"
     out += "main:\n"
     
@@ -68,7 +67,14 @@ def compile_ops(toks: list[Token], asm_funcs: dict[str, str]):
         out += "    ; %s - \"%s\" line %d\n" % (tok.typ._name_, tok.filename, tok.ln)
         match tok.typ:
             case TokenType.INT:
-                out += "    push    %d\n\n" % tok.value
+                if tok.value >= 1<<64:
+                    Croak(ErrorType.IntegerTooLarge, "integer too large to push to the stack, must be a 64 bit integer.")
+                
+                if tok.value >= 1<<32:
+                    out += "    mov     rax, %d\n" % tok.value
+                    out += "    push    rax\n\n"
+                else:
+                    out += "    push    %d\n\n" % tok.value
             case TokenType.STR:
                 out += "    lea     rax, [string_%d]\n" % len(strings)
                 out += "    push    rax\n\n"
@@ -95,18 +101,18 @@ def compile_ops(toks: list[Token], asm_funcs: dict[str, str]):
             case TokenType.SWAP:
                 out += "    pop     rax\n"
                 out += "    pop     rbx\n"
-                out += "    push    rbx\n"
+                out += "    push    rax\n"
+                out += "    push    rbx\n\n"
+            case TokenType.CALL:
+                out += "    mov     rcx, [rsp]\n"
+                out += "    mov     rdx, [rsp + 8]\n"
+                out += "    mov     r8, [rsp + 16]\n"
+                out += "    mov     r9, [rsp + 24]\n"
+                out += "    call    %s\n" % tok.value
                 out += "    push    rax\n\n"
-            case TokenType.ID:
-                out += "    call    %s\n\n" % tok.value
     
     out += "    xor     rax, rax\n"
     out += "    call    ExitProcess\n\n"
-    
-    for name in asm_funcs:
-        out += name + ":\n"
-        out += asm_funcs[name].strip("\n") + "\n\n"
-    
     
     out += "segment .data\n"
     for index, string in enumerate(strings):
@@ -147,7 +153,9 @@ def run_program() -> None:
 
     name = "temp.s" if not asm else outname + ".s"
     
-    open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, lex_src.assembly))    
+    time = perf_counter()
+    open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, lex_src.calls))    
+    print("Sucessfully compiled in %.5f seconds." % (perf_counter() - time))
 
     if not asm:
         os.system("nasm -fwin64 %s -o temp.obj" % name)

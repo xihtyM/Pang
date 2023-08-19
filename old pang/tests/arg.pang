@@ -1,6 +1,0 @@
-include "std.pang"
-
-while 0 < do
-    push 1- back
-    println front
-end drop

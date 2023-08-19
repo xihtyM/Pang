@@ -1,6 +1,0 @@
-include 'std.pang'
-
-128 dup back range front // stack: range(128), 128
-
-// prints unicode characters 0-127
-puts

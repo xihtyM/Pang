@@ -1,4 +1,0 @@
-include 'std.pang'
-
-// print 34 + 35 to stdout
-34 35 add puti

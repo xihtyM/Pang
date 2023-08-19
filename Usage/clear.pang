@@ -1,8 +1,0 @@
-include 'std.pang'
-
-length puti // prints the length of the stack
-'\n' putc // just a newline for readability
-
-clear // clear the stack
-
-length puti // prints 0 as the stack has now got no items on it

@@ -1,0 +1,63 @@
+include 'limits.pang'
+
+macro stdin_fileno  0 end
+macro stdout_fileno 1 end
+macro stderr_fileno 2 end
+
+macro __acrt_iob_func
+    call __acrt_iob_func swap drop
+end
+
+macro stdin  stdin_fileno  __acrt_iob_func end
+macro stdout stdout_fileno __acrt_iob_func end
+macro stderr stderr_fileno __acrt_iob_func end
+
+macro WEOF 0xffff end
+
+
+/* Buffered I/O macros */
+
+macro BUFSIZ    512 end
+
+
+
+/* Default number of supported streams */
+
+macro _NSTREAM_ 512 end
+
+
+/*
+ * Number of entries in _iob[] (declared below). Note that _NSTREAM_ must be
+ * greater than or equal to _IOB_ENTRIES.
+ */
+macro _IOB_ENTRIES  3 end
+
+macro EOF           -1 end
+
+macro _IOFBF        0x0000 end
+macro _IOLBF        0x0040 end
+macro _IONBF        0x0004 end
+
+
+
+macro L_tmpnam      260 end // _MAX_PATH
+
+/* Seek method constants */
+
+macro SEEK_CUR      1 end
+macro SEEK_END      2 end
+macro SEEK_SET      0 end
+
+
+macro FILENAME_MAX  260 end
+macro FOPEN_MAX     20 end
+macro _SYS_OPEN     20 end
+macro SYS_OPEN      _SYS_OPEN end
+
+
+macro TMP_MAX       INT_MAX end
+
+
+
+macro _MAX_PATH     L_tmpnam end
+macro MAX_PATH      _MAX_PATH end

@@ -1,7 +1,0 @@
-include 'std.pang'
-
-// duplicate a 2d array
-"2d array\n" 1 chsin append_1d_from_ptr
-
-// print twice
-puts purge puts purge

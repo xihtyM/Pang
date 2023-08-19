@@ -1,4 +1,0 @@
-include 'std.pang'
-
-// clear stdout
-cls

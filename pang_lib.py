@@ -46,6 +46,7 @@ class ErrorType(Enum):
     Syntax = auto()
     Command = auto()
     Compile = auto()
+    IntegerTooLarge = auto()
 
 class TokenType(Enum):
     # Identifiers
@@ -63,14 +64,13 @@ class TokenType(Enum):
     MACRO = auto()
     END = auto()
     
-    # Jumps/conditionals
-    JMP = auto()
-    LABEL = auto()
+    # Control flow
+    IF = auto()
+    WHILE = auto()
 
     # Push to stack
     INT = auto()
     STR = auto()
-    DOUBLE = auto()
 
     # Arithmetic
     SUB = auto()
@@ -82,9 +82,7 @@ class TokenType(Enum):
     # Stack operations
     DUP = auto()
     SWAP = auto()
-    BACK = auto()
     DROP = auto()
-    FRONT = auto()
 
     # Conditionals
     EQUAL = auto()
@@ -95,8 +93,8 @@ class TokenType(Enum):
     # Edit output buffer
     BUF = auto()
     
-    # Assembly
-    ASM = auto()
+    # Interaction with c functions or windows api
+    CALL = auto()
 
     # Pointers
     APPLY = auto()
@@ -105,38 +103,6 @@ class TokenType(Enum):
     # For undefined tokens
     NONE = auto()
 
-## TODO: REWRITE
-class Syscall(Enum):
-    # Process control
-    FORK = auto() # Unimplemented
-    EXIT = auto()
-    EXEC = auto() # Unimplemented
-    KILL = auto() # Unimplemented
-
-    # File management
-    OPEN = auto()
-    READ = auto()
-    WRITE = auto()
-    CLOSE = auto()
-
-    # Device management
-    IOCTL = auto() # Unimplemented
-
-    # Information maintenance
-    GETPID = auto() # Unimplemented
-    ALARM = auto() # Unimplemented
-    SLEEP = auto()
-    #TIME = auto()
-
-    # Communication
-    PIPE = auto() # Unimplemented
-    SHMGET = auto() # Unimplemented
-    MMAP = auto() # Unimplemented
-
-    # Stack operations
-    RESIZE = auto()
-    POINTER = auto()
-    LENGTH = auto()
 
 @dataclass
 class Token():
@@ -145,6 +111,7 @@ class Token():
     value: Union[str, int] = ""
     filename: str = ""
     ln: int = -1
+
 
 # Use keyword_map for checking when the identifier is a keyword
 # or for getting the correct type of the keyword, e.g:
@@ -159,6 +126,7 @@ keyword_map = {
     "rshift": TokenType.RSHIFT,
 
     # Normal tokens
+    "if": TokenType.IF,
     "add": TokenType.ADD,
     "sub": TokenType.SUB,
     "mul": TokenType.MUL,
@@ -166,14 +134,13 @@ keyword_map = {
     "buf": TokenType.BUF,
     "div": TokenType.DIV,
     "mod": TokenType.MOD,
-    "jmp": TokenType.JMP,
     "drop": TokenType.DROP,
     "swap": TokenType.SWAP,
-    "back": TokenType.BACK,
-    "front": TokenType.FRONT,
+    "while": TokenType.WHILE,
     "apply": TokenType.APPLY,
     "quote": TokenType.QUOTE,
 }
+
 
 def Croak(err_typ: ErrorType, *msg: str):
     """ Use Croak() for every pang error. """
