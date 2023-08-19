@@ -25,3 +25,28 @@ include 'coreprt.pang'
 
 macro NULL 0 end
 
+
+/// @brief Writes string to a file
+/// @param file pointer to FILE struct containing file
+/// @param string pointer to char array to be written
+/// Stack must be preserved to [FILE*, char*] at end.
+macro write
+    // stack: [FILE*, char*, strlen(char*)]
+    call strlen
+
+
+    // stack: [FILE*, strlen(char*), sizeof(char), char*]
+    swap sizeof_char swap
+
+
+    // TODO: return nonzero on failure to write strlen(char*) characters.
+    // ignore amount of items written and presume it worked for now
+    // stack: [FILE*, strlen(char*), sizeof(char), char*, int]
+    call fwrite
+
+    // stack: [FILE*, strlen(char*), char*, sizeof(char)]
+    drop swap
+
+    // stack: [FILE*, char*]
+    drop swap drop
+end

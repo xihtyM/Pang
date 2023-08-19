@@ -229,7 +229,6 @@ class Lexer():
         new_toks.get_tokens_without_macros()
 
         self.includes.append(include_filename)
-        self.calls.update(new_toks.calls)
 
         self.toks += new_toks.toks
 
@@ -254,7 +253,6 @@ class Lexer():
                     ))
             
             self.identifier()
-            self.calls.add(self.toks[-1].value)
             self.toks[-1] = Token(TokenType.CALL, "call",
                                   self.toks[-1].value, self.fn, self.toks[-1].ln)
             self.lexing_call = False
@@ -435,6 +433,9 @@ class Lexer():
                     )
 
                 for macro_tok in macros[tok.value]:
+                    if macro_tok.typ == TokenType.CALL:
+                        self.calls.add(macro_tok.value)
+                    
                     macro_tok.ln = tok.ln
                     macro_tok.filename = tok.filename
 
@@ -442,6 +443,9 @@ class Lexer():
             elif tok.typ == TokenType.MACRO:
                 # skip macros as they have already been added
                 skip_macro = True
+            elif tok.typ == TokenType.CALL:
+                self.calls.add(tok.value)
+                macro_added_toks.append(tok)
             else:
                 macro_added_toks.append(tok)
 

@@ -1,2 +1,8 @@
 include 'std.pang'
-UINTMAX_MAX "Largest possible number: %llu\n" call printf
+
+"w" "test.txt" call fopen
+
+"Hello, world!\n" write
+drop
+
+call fclose
