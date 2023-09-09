@@ -1,8 +1,5 @@
 include 'std.pang'
 
-"w" "test.txt" call fopen
+iota iota iota iota __VERSION__ __BASE_FILE__
 
-"Hello, world!\n" write
-drop
-
-call fclose
+"%s %d %d %d %d %d\n" call printf
