@@ -1,0 +1,20 @@
+include 'std.pang'
+
+/* 
+ * Standard library for quote/apply instructions
+ * and manipulating the stack.
+ */
+
+
+// to append multiple pointers onto the stack
+
+macro mk2ptr
+    // stack: [..., (1) 0, (2) 0, ptr((2) 0)]
+    0 0 quote
+
+    // stack: [..., (1) 0, (2) 0, ptr((2) 0), ptr((1) 0)]
+    // add 8 bits (sizeof int) to point to the previous value
+    dup sizeof_int add
+end
+
+

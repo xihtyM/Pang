@@ -1,12 +1,13 @@
 // BUILTIN TYPES
 macro sizeof_char       1 end
 macro sizeof_short      2 end
-macro sizeof_int        4 end
+macro sizeof_cint       4 end
 macro sizeof_long       4 end
 macro sizeof_float      4 end
 macro sizeof_long_long  8 end
 macro sizeof_double     8 end
 macro sizeof_ptr        8 end
+macro sizeof_int        8 end
 
 
 // STDINT
@@ -27,12 +28,14 @@ macro NULL 0 end
 
 
 /// @brief Writes string to a file
-/// @param file pointer to FILE struct containing file
 /// @param string pointer to char array to be written
+/// @param file pointer to FILE struct containing file
 /// Stack must be preserved to [FILE*, char*] at end.
 macro write
+    // START: [char*, FILE*]
+
     // stack: [FILE*, char*, strlen(char*)]
-    call strlen
+    swap call strlen
 
 
     // stack: [FILE*, strlen(char*), sizeof(char), char*]
@@ -47,6 +50,6 @@ macro write
     // stack: [FILE*, strlen(char*), char*, sizeof(char)]
     drop swap
 
-    // stack: [FILE*, char*]
-    drop swap drop
+    // stack: [char*, FILE*]
+    drop swap drop swap
 end
