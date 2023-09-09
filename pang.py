@@ -24,10 +24,14 @@ def compile_ops(toks: list[Token], calls: list[str]):
     
     stack = []
     new_toks: list[Token] = []
+    drops = 0
     
     # optimise tokens
     for tok in toks:
         new_toks.append(tok)
+        
+        if tok.typ != TokenType.DROP:
+            drops = 0
         
         match tok.typ:
             case TokenType.INT:
@@ -50,6 +54,15 @@ def compile_ops(toks: list[Token], calls: list[str]):
                     new_toks.pop()
                     remove_prev_2(new_toks)
                     new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.DROP:
+                if stack:
+                    stack.pop()
+                
+                if drops:
+                    new_toks.pop()
+                
+                drops += 1
+                new_toks[-1].value = drops
             case _:
                 stack = []
     
@@ -59,8 +72,12 @@ def compile_ops(toks: list[Token], calls: list[str]):
     out += "segment .text\n"
     out += "    global main\n"
     out += "\n"
-    out += "    extern ExitProcess, %s\n" % ", ".join(calls)
-    out += "\n"
+    out += "    extern ExitProcess"
+    
+    if calls:
+        out += ", " + ", ".join(calls)
+    
+    out += "\n\n"
     out += "main:\n"
     
     for tok in new_toks:
@@ -80,29 +97,37 @@ def compile_ops(toks: list[Token], calls: list[str]):
                 out += "    push    rax\n\n"
                 strings.append(tok.value)
             case TokenType.ADD:
+                out += "    pop     rax\n"
+                out += "    add     qword [rsp], rax\n\n"
+            case TokenType.IADD:
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
-                out += "    add     rax, rbx\n"
+                out += "    add     qword [rax], rbx\n"
                 out += "    push    rax\n\n"
             case TokenType.SUB:
+                out += "    pop     rax\n"
+                out += "    sub     qword [rsp], rax\n\n"
+            case TokenType.ISUB:
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
-                out += "    sub     rax, rbx\n"
+                out += "    sub     qword [rax], rbx\n"
                 out += "    push    rax\n\n"
             case TokenType.MUL:
+                out += "    pop     rax\n"
+                out += "    imul    qword [rsp], rax\n\n"
+            case TokenType.IMUL:
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
-                out += "    imul    rax, rbx\n"
+                out += "    imul    qword [rax], rbx\n"
                 out += "    push    rax\n\n"
             case TokenType.DUP:
                 out += "    push    qword [rsp]\n\n"
             case TokenType.DROP:
-                out += "    pop     rax\n\n"
+                out += "    add     rsp, %d\n\n" % (tok.value * 8)
             case TokenType.SWAP:
                 out += "    pop     rax\n"
-                out += "    pop     rbx\n"
-                out += "    push    rax\n"
-                out += "    push    rbx\n\n"
+                out += "    xchg    qword [rsp], rax\n"
+                out += "    push    rax\n\n"
             case TokenType.CALL:
                 out += "    mov     rcx, [rsp]\n"
                 out += "    mov     rdx, [rsp + 8]\n"
@@ -110,6 +135,17 @@ def compile_ops(toks: list[Token], calls: list[str]):
                 out += "    mov     r9, [rsp + 24]\n"
                 out += "    call    %s\n" % tok.value
                 out += "    push    rax\n\n"
+            case TokenType.APPLY: # dereference
+                out += "    pop     rax\n"
+                out += "    push    qword [rax]\n\n"
+            case TokenType.QUOTE: # reference
+                out += "    lea     rax, [rsp]\n"
+                out += "    push    rax\n\n"
+            case TokenType.BITNOT:
+                out += "    not     qword [rsp]\n\n"
+            case TokenType.BITAND:
+                out += "    pop     rax\n"
+                out += "    and     qword [rsp], rax\n\n"
     
     out += "    xor     rax, rax\n"
     out += "    call    ExitProcess\n\n"
@@ -148,12 +184,12 @@ def run_program() -> None:
     
     src = open(src_filename, "r", encoding="utf-8").read()
     
+    time = perf_counter()
     lex_src = Lexer(src, src_filename)
     lex_src.get_tokens()
 
     name = "temp.s" if not asm else outname + ".s"
     
-    time = perf_counter()
     open(name, "w", encoding="utf-8").write(compile_ops(lex_src.toks, lex_src.calls))    
     print("Sucessfully compiled in %.5f seconds." % (perf_counter() - time))
 
