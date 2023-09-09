@@ -10,22 +10,23 @@ class Lexer():
         self.fn = filename
         self.raw = src
         self.size = len(src)
+        self.line = 1
         self.toks: list[Token] = []
         self.includes: list[str] = []
         self.calls = set()
 
         self.lexing_call = False
 
-    def line(self, l_break: int) -> int:
-        return self.raw[:l_break].count("\n") + 1
-
     def _get(self) -> str:
         """ Returns current value and index++ """
+        if self.raw[self.index] == "\n":
+            self.line += 1
+
         self.index += 1
 
         if self.index - 1 >= self.size:
             return ""
-
+        
         return self.raw[self.index - 1]
 
     def _peek(self) -> str:
@@ -35,12 +36,19 @@ class Lexer():
 
         return self.raw[self.index]
 
+    def skip_whitespace(self) -> None:
+        while self._peek() in " \t\n":
+            self._get()
+
+            if not self._peek():
+                break
+
     def atom(self, tok_typ: TokenType) -> None:
         self.toks.append(Token(tok_typ, self._peek(),
-                         self._get(), self.fn, self.line(self.index - 1)))
+                         self._get(), self.fn, self.line))
 
     def num(self) -> None:
-        start = self.index
+        line = self.line
         raw = self._get()
 
         while self._peek() and self._peek() in "0123456789":
@@ -53,7 +61,7 @@ class Lexer():
 
             self.toks.append(Token(
                 TokenType.INT, raw, int(raw, 16),
-                self.fn, self.line(start)))
+                self.fn, line))
 
             return
         elif raw in ("0", "-0", "+0") and self._peek() in ("o", "O"):
@@ -63,7 +71,7 @@ class Lexer():
 
             self.toks.append(Token(
                 TokenType.INT, raw, int(raw, 8),
-                self.fn, self.line(start)))
+                self.fn, line))
 
             return
 
@@ -73,17 +81,17 @@ class Lexer():
                 "leading zeros in integer literals are prohibited; ",
                 "use 0o for octal integers instead.\n\n",
                 "Found in file \"%s\" (detected at line: %d)." % (
-                    self.fn, self.line(start)))
+                    self.fn, line))
 
         self.toks.append(Token(TokenType.INT, raw, int(raw),
-                         self.fn, self.line(start)))
+                         self.fn, line))
 
     def raw_string(self) -> None:
-        start = self.index
+        line = self.line
         raw = ""
 
         # Add 1 to index to skip \" character
-        self.index += 1
+        self._get()
 
         while self._peek() != "\"":
             raw += self._peek()
@@ -93,20 +101,20 @@ class Lexer():
                     ErrorType.Syntax,
                     "unterminated raw string literal: %s\n\n" % raw,
                     "Found in file \"%s\" (detected at line: %d)" % (
-                        self.fn, self.line(start)))
+                        self.fn, line))
 
         # Add 1 to index to skip \" character
-        self.index += 1
+        self._get()
 
         self.toks.append(Token(TokenType.STR, "r\"%s\"" %
-                         raw, raw, self.fn, self.line(start)))
+                         raw, raw, self.fn, line))
 
     def string(self) -> None:
-        start = self.index
+        line = self.line
         raw = ""
 
         # Add 1 to index to skip \" character
-        self.index += 1
+        self._get()
 
         while self._peek() != "\"":
             raw += self._peek()
@@ -116,22 +124,22 @@ class Lexer():
                     ErrorType.Syntax,
                     "unterminated string literal: %s\n\n" % raw,
                     "Found in file \"%s\" (detected at line: %d)" % (
-                        self.fn, self.line(start)))
+                        self.fn, line))
 
             if self._peek() == "\"" and not raw.endswith("\\\\") and raw[-1] == "\\":
                 raw += self._get()
 
         # Add 1 to index to skip \" character
-        self.index += 1
+        self._get()
 
         self.toks.append(Token(TokenType.STR, "\"%s\"" % raw, raw.encode(
-            "raw_unicode_escape").decode("unicode_escape"), self.fn, self.line(start)))
+            "raw_unicode_escape").decode("unicode_escape"), self.fn, line))
 
     def char(self) -> None:
-        start = self.index
+        line = self.line
 
         # Add 1 to index to skip \' character
-        self.index += 1
+        self._get()
 
         raw = self._get()
 
@@ -139,7 +147,7 @@ class Lexer():
             Croak(
                 ErrorType.Syntax,
                 "char must contain a value in file \"%s\" (detected at line: %d)" % (
-                    self.fn, self.line(start)
+                    self.fn, line
                 )
             )
         elif raw == "\\":
@@ -150,7 +158,7 @@ class Lexer():
                     Croak(
                         ErrorType.Syntax,
                         "unterminated char literal in file \"%s\" (detected at line: %d)" % (
-                            self.fn, self.line(start)
+                            self.fn, line
                         )
                     )
 
@@ -160,35 +168,34 @@ class Lexer():
             Croak(
                 ErrorType.Syntax,
                 "char must be 1 character long, in file \"%s\" (detected at line: %d)" % (
-                    self.fn, self.line(start)
+                    self.fn, line
                 )
             )
 
         self.toks.append(Token(TokenType.INT, raw, ord(raw),
-                         self.fn, self.line(start)))
+                         self.fn, line))
 
     def comment(self) -> None:
-        self.index += 1
+        self._get()
+        
+        next_ch = self._get()
 
-        if self._peek() == "/":
-            while self._peek() != "\n":
-                if not self._get():
+        if next_ch == "/":
+            while (cur := self._get()) != "\n":
+                if not cur:
                     break
             return
-        elif self._peek() == "*":
-            self.index += 1
-            while self._peek():
-                if self._get() + self._peek() == "*/":
+        elif next_ch == "*":
+            while (cur := self._get()):
+                if cur + self._peek() == "*/":
                     break
-            self.index += 1
+            self._get()
             return
 
         Croak(ErrorType.Syntax, "expected // or /* */ comment")
 
     def include_file(self) -> None:
-        while self._peek() in " \n\t":
-            if not self._get():
-                assert False, "Must include a file"
+        self.skip_whitespace()
 
         systemfile = self._peek() == "\'"
 
@@ -196,7 +203,7 @@ class Lexer():
             Croak(
                 ErrorType.Syntax,
                 "must include a string or system library in file \"%s\" (detected at line: %d)" % (
-                    self.fn, self.line(self.index)
+                    self.fn, self.line
                 )
             )
 
@@ -209,12 +216,12 @@ class Lexer():
                 Croak(
                     ErrorType.Syntax,
                     "unterminated string literal in file \"%s\" (detected at line: %d)" % (
-                        self.fn, self.line(self.index)
+                        self.fn, self.line
                     )
                 )
 
         # Add 1 to index to skip \" or \' character
-        self.index += 1
+        self._get()
 
         if systemfile:
             include_filename = PANG_SYS + include_filename
@@ -225,7 +232,7 @@ class Lexer():
 
         new_toks = Lexer(open(include_filename, "r",
                          encoding="utf-8").read(), include_filename)
-        new_toks.includes = self.includes
+        new_toks.includes = self.includes + [self.fn]
         new_toks.get_tokens_without_macros()
 
         self.includes.append(include_filename)
@@ -234,22 +241,16 @@ class Lexer():
 
     def call(self) -> None:
         if not self.lexing_call:
-            start = self.index
+            line = self.line
             self.lexing_call = True
 
-            while self._peek() in " \t\n":
-                self.index += 1
-
-                if not self._peek():
-                    Croak(
-                        ErrorType.Syntax,
-                        "call must have an identifier to specify the function to be called (e.g. `call printf`)")
+            self.skip_whitespace()
 
             if self._peek() not in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 Croak(
                     ErrorType.Syntax,
                     "expected identifier, got %s\nDetected at line %d in file \"%s\"" % (
-                        self.get_error_type(), self.line(start), self.fn
+                        self.get_error_type(), line, self.fn
                     ))
             
             self.identifier()
@@ -261,41 +262,35 @@ class Lexer():
         Croak(ErrorType.Syntax, "cannot call keyword 'call'")
 
     def identifier(self) -> None:
-        start = self.index
+        line = self.line
         raw = self._get()
 
         if raw == "r" and self._peek() == "\"":
             self.raw_string()
             return
 
-        while self._peek() in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
-            raw += self._peek()
+        while (cur := self._get()) in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":
+            raw += cur
 
-            if not self._get():
+            if not cur:
                 break
 
-        if raw == "macro":
-            self.toks.append(Token(TokenType.MACRO, raw,
-                             raw, self.fn, self.line(start)))
-        elif raw == "end":
-            self.toks.append(Token(TokenType.END, raw, raw,
-                             self.fn, self.line(start)))
-        elif raw == "include":
-            self.include_file()
+        if raw in keyword_map:
+            self.toks.append(Token(keyword_map.get(raw), raw,
+                             raw, self.fn, line))
         elif raw == "call":
             self.call()
-        elif raw in keyword_map:
-            self.toks.append(Token(keyword_map.get(raw), raw,
-                             raw, self.fn, self.line(start)))
+        elif raw == "include":
+            self.include_file()
         else:
             self.toks.append(Token(TokenType.ID, raw, raw,
-                             self.fn, self.line(start)))
+                             self.fn, line))
 
     def get_tokens_without_macros(self) -> None:
         while self._peek():
             end = False
             while self._peek() in " \t\n":
-                self.index += 1
+                self._get()
 
                 if not self._peek():
                     end = True
@@ -328,13 +323,13 @@ class Lexer():
                 Croak(
                     ErrorType.Syntax,
                     "invalid character found in file \"%s\" (detected at line: %d): %c" % (
-                        self.fn, self.line(self.index), current
+                        self.fn, self.line, current
                     )
                 )
 
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
-
+        print(len(self.toks))
         macro_added_toks = []
         macro = False
         macro_name = False
@@ -342,9 +337,14 @@ class Lexer():
         cur_name = ""
         cur_tok = Token()
         cur_toks = []
-        macros = {}
+        macros = {
+            "__VERSION__": [Token(TokenType.INT, str(PANG_VER), int(PANG_VER))],
+            "__BASE_FILE__": [Token(TokenType.STR, self.fn, self.fn)],
+        }
+        
+        __ENUM__ = 0
 
-        # Add macros
+        # Add all definitions of macros to the macros variable
         for tok in self.toks:
             if tok.typ in (TokenType.WHILE, TokenType.IF):
                 skip_end += 1
@@ -398,6 +398,10 @@ class Lexer():
                     cur_toks.append(tok)
                 else:
                     # print(tok.raw) # open(self.includes[0], "r", encoding="utf-8").read().count("\n", 0, tok.ind))
+                    if tok.value == "__ENUM__":
+                        cur_toks.append(tok) # keep it the same token so it can be expanded with the rest
+                        continue
+                    
                     if tok.value not in macros:
                         Croak(
                             ErrorType.Name,
@@ -405,7 +409,7 @@ class Lexer():
                                 tok.raw, tok.filename, tok.ln
                             )
                         )
-
+                    
                     for macro_tok in macros[tok.value]:
                         cur_toks.append(macro_tok)
 
@@ -424,7 +428,14 @@ class Lexer():
                 continue
 
             if tok.typ == TokenType.ID:
-                if not tok.value in macros:
+                # Add more predefined macros
+                if tok.value == "__ENUM__":
+                    macro_added_toks.append(Token(TokenType.INT, str(__ENUM__), __ENUM__,
+                                              tok.filename, tok.ln))
+                    __ENUM__ += 1
+                    continue
+                
+                if tok.value not in macros:
                     Croak(
                         ErrorType.Name,
                         "undefined reference to identifier %s in file \"%s\" (detected at line: %d)" % (
@@ -435,6 +446,14 @@ class Lexer():
                 for macro_tok in macros[tok.value]:
                     if macro_tok.typ == TokenType.CALL:
                         self.calls.add(macro_tok.value)
+                    
+                    # Add predefined macros
+                    if macro_tok.typ == TokenType.ID:
+                        if macro_tok.value == "__ENUM__":
+                            macro_added_toks.append(Token(TokenType.INT, str(__ENUM__), __ENUM__,
+                                                    macro_tok.filename, macro_tok.ln))
+                            __ENUM__ += 1
+                            continue
                     
                     macro_tok.ln = tok.ln
                     macro_tok.filename = tok.filename
