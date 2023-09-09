@@ -4,9 +4,9 @@ if __name__ == "__main__":
 
 import sys
 
-# ver < 3.6 is deprecated
-if sys.version_info < (3, 6):
-    print("DepreciationError: Please install a python version greater than 3.5.")
+# ver < 3.8 is deprecated
+if sys.version_info < (3, 8):
+    print("DepreciationError: Please install a python version greater than 3.7.")
     exit(1)
 
 from time import perf_counter, sleep
@@ -17,18 +17,20 @@ import os
 
 ## Pang constants ##
 
-PANG_SYS = None# for testing purposes os.getenv("pang")
+PANG_SYS = os.path.join(os.getenv("pang"), "lib") # for testing purposes use None
 
 if PANG_SYS is None:
-    PANG_SYS = os.path.dirname(os.path.realpath(__file__))
+    PANG_SYS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib")
 
-PANG_SYS += "\\"
+PANG_SYS += os.path.sep
 
 NEWLINE_CALLS = [
     0x005, 0x006,
     0x007, 0x008,
     0x012,
 ]
+
+PANG_VER = 3.0
 
 # Change limit for I/O operations in interpreted mode.
 # If there is no limit (in some versions of python).
@@ -53,8 +55,8 @@ class TokenType(Enum):
     ID = auto()
 
     # Bitwise operators
-    EXCOR = auto()
-    BITOR = auto()
+    EXCOR = auto() #
+    BITOR = auto() #
     BITAND = auto()
     BITNOT = auto()
     LSHIFT = auto()
@@ -65,8 +67,8 @@ class TokenType(Enum):
     END = auto()
     
     # Control flow
-    IF = auto()
-    WHILE = auto()
+    IF = auto() #
+    WHILE = auto() #
 
     # Push to stack
     INT = auto()
@@ -76,8 +78,13 @@ class TokenType(Enum):
     SUB = auto()
     ADD = auto()
     MUL = auto()
-    DIV = auto()
-    MOD = auto()
+    DIV = auto() #
+    MOD = auto() #
+    IADD = auto()
+    ISUB = auto()
+    IMUL = auto()
+    IDIV = auto() #
+    IMOD = auto() #
 
     # Stack operations
     DUP = auto()
@@ -85,13 +92,10 @@ class TokenType(Enum):
     DROP = auto()
 
     # Conditionals
-    EQUAL = auto()
-    NOT_EQUAL = auto()
-    GREATER_THAN = auto()
-    SMALLER_THAN = auto()
-
-    # Edit output buffer
-    BUF = auto()
+    EQUAL = auto() #
+    NOT_EQUAL = auto() #
+    GREATER_THAN = auto() #
+    SMALLER_THAN = auto() #
     
     # Interaction with c functions or windows api
     CALL = auto()
@@ -131,14 +135,21 @@ keyword_map = {
     "sub": TokenType.SUB,
     "mul": TokenType.MUL,
     "dup": TokenType.DUP,
-    "buf": TokenType.BUF,
     "div": TokenType.DIV,
     "mod": TokenType.MOD,
+    "iadd": TokenType.IADD,
+    "isub": TokenType.ISUB,
+    "imul": TokenType.IMUL,
+    "idiv": TokenType.IDIV,
+    "imod": TokenType.IMOD,
     "drop": TokenType.DROP,
     "swap": TokenType.SWAP,
     "while": TokenType.WHILE,
     "apply": TokenType.APPLY,
     "quote": TokenType.QUOTE,
+    
+    "macro": TokenType.MACRO,
+    "end": TokenType.END,
 }
 
 
