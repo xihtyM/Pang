@@ -1,5 +1,5 @@
 include 'std.pang'
 
-iota iota iota iota __VERSION__ __BASE_FILE__
-
-"%s %d %d %d %d %d\n" call printf
+stdin readline
+stdout write
+//drop call free

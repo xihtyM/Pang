@@ -19,13 +19,14 @@ class Lexer():
 
     def _get(self) -> str:
         """ Returns current value and index++ """
-        if self.raw[self.index] == "\n":
-            self.line += 1
 
         self.index += 1
 
         if self.index - 1 >= self.size:
             return ""
+        
+        if self.raw[self.index - 1] == "\n":
+            self.line += 1
         
         return self.raw[self.index - 1]
 
@@ -261,6 +262,18 @@ class Lexer():
 
         Croak(ErrorType.Syntax, "cannot call keyword 'call'")
 
+    def lex_if_or_while(self, typ: TokenType) -> None:
+        self.skip_whitespace()
+        self.num()
+        self.skip_whitespace()
+        
+        
+        self.toks[-1].typ = typ
+        self.toks[-1].raw = self._get()
+        
+        if self.toks[-1].raw not in "<>=!":
+            Croak(ErrorType.Syntax, "expected comparison operator, instead got %s" % self.toks[-1].raw)
+
     def identifier(self) -> None:
         line = self.line
         raw = self._get()
@@ -282,6 +295,8 @@ class Lexer():
             self.call()
         elif raw == "include":
             self.include_file()
+        elif raw in ("if", "while"):
+            self.lex_if_or_while(TokenType.IF if raw == "if" else TokenType.WHILE)
         else:
             self.toks.append(Token(TokenType.ID, raw, raw,
                              self.fn, line))
@@ -329,7 +344,7 @@ class Lexer():
 
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
-        print(len(self.toks))
+        
         macro_added_toks = []
         macro = False
         macro_name = False
@@ -339,7 +354,10 @@ class Lexer():
         cur_toks = []
         macros = {
             "__VERSION__": [Token(TokenType.INT, str(PANG_VER), int(PANG_VER))],
-            "__BASE_FILE__": [Token(TokenType.STR, self.fn, self.fn)],
+            "__BASE_FILE__": [Token(TokenType.STR, self.fn, realpath(self.fn))],
+            "__TIME__": [Token(TokenType.STR, COMPILE_TIME, COMPILE_TIME)],
+            "__DATE__": [Token(TokenType.STR, COMPILE_DATE, COMPILE_DATE)],
+            "__ARCH__": [Token(TokenType.STR, ARCHITECTURE, ARCHITECTURE)],
         }
         
         __ENUM__ = 0
@@ -401,6 +419,12 @@ class Lexer():
                     if tok.value == "__ENUM__":
                         cur_toks.append(tok) # keep it the same token so it can be expanded with the rest
                         continue
+                    elif tok.value == "__LINE__":
+                        cur_toks.append(Token(TokenType.INT, str(tok.ln), tok.ln, tok.filename, tok.ln))
+                        continue
+                    elif tok.value == "__FILE__":
+                        cur_toks.append(Token(TokenType.STR, tok.filename, realpath(tok.filename), tok.filename, tok.ln))
+                        continue
                     
                     if tok.value not in macros:
                         Croak(
@@ -431,8 +455,15 @@ class Lexer():
                 # Add more predefined macros
                 if tok.value == "__ENUM__":
                     macro_added_toks.append(Token(TokenType.INT, str(__ENUM__), __ENUM__,
-                                              tok.filename, tok.ln))
+                                                  tok.filename, tok.ln))
                     __ENUM__ += 1
+                    continue
+                elif tok.value == "__LINE__":
+                    macro_added_toks.append(Token(TokenType.INT, str(tok.ln), tok.ln,
+                                                  tok.filename, tok.ln))
+                    continue
+                elif tok.value == "__FILE__":
+                    macro_added_toks.append(Token(TokenType.STR, tok.filename, realpath(tok.filename), tok.filename, tok.ln))
                     continue
                 
                 if tok.value not in macros:
@@ -453,7 +484,7 @@ class Lexer():
                             macro_added_toks.append(Token(TokenType.INT, str(__ENUM__), __ENUM__,
                                                     macro_tok.filename, macro_tok.ln))
                             __ENUM__ += 1
-                            continue
+                        continue
                     
                     macro_tok.ln = tok.ln
                     macro_tok.filename = tok.filename

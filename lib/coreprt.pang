@@ -1,8 +1,6 @@
 include 'limits.pang'
 include 'pointers.pang'
 
-macro iota __ENUM__ end
-
 macro stdin_fileno  0 end
 macro stdout_fileno 1 end
 macro stderr_fileno 2 end

@@ -59,7 +59,7 @@ int main(void)
         printf("Error: Couldn't open System32, make sure you are running as administrator.");
         return 1;
     }
-
+    
     fwrite(PANG_BATCH_SCRIPT, strlen(PANG_BATCH_SCRIPT), 1, bat);
     fclose(bat);
 

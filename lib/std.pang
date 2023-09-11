@@ -24,12 +24,32 @@ macro sizeof_intmax_t   8 end
 
 include 'coreprt.pang'
 
+// used to generate a unique number
+macro iota __ENUM__ end
+
 macro NULL 0 end
 
+/// @brief Reads line from a file.
+/// @param file pointer to FILE struct to read from.
+/// @return string read from file, must be freed.
+/// Stack must be preserved to [FILE*, char*] at end.
+macro readline
+    // stack: [char*, FILE*]
+    "                " swap
 
-/// @brief Writes string to a file
-/// @param string pointer to char array to be written
-/// @param file pointer to FILE struct containing file
+    // stack: [(malloc) char*, (fmt) char*, FILE*]
+    "%15[^\n]" swap
+    
+    // stack: [char*, FILE*]
+    call fscanf drop swap drop
+    
+    // stack: [FILE*, char*]
+    swap
+end
+
+/// @brief Writes string to a file.
+/// @param string pointer to char array to be written.
+/// @param file pointer to FILE struct containing file.
 /// Stack must be preserved to [FILE*, char*] at end.
 macro write
     // START: [char*, FILE*]
@@ -53,3 +73,4 @@ macro write
     // stack: [char*, FILE*]
     drop swap drop swap
 end
+

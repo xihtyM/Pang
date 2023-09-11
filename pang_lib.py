@@ -9,18 +9,46 @@ if sys.version_info < (3, 8):
     print("DepreciationError: Please install a python version greater than 3.7.")
     exit(1)
 
-from time import perf_counter, sleep
+from time import perf_counter, sleep, strftime
+from platform import machine
+from datetime import date
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Union
 import os
 
+
+realpath = os.path.realpath
+
 ## Pang constants ##
 
-PANG_SYS = os.path.join(os.getenv("pang"), "lib") # for testing purposes use None
+date_obj = date.today()
+
+months = {
+    1: "Jan",
+    2: "Feb",
+    3: "Mar",
+    4: "Apr",
+    5: "May",
+    6: "Jun",
+    7: "Jul",
+    8: "Aug",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
+}
+
+COMPILE_TIME = strftime("%H:%M:%S")
+COMPILE_DATE = "%s %s%d %d" % (months[date_obj.month], (" " if date_obj.day < 10 else ""),
+                               date_obj.day, date_obj.year)
+
+ARCHITECTURE = machine()
+
+PANG_SYS = None #os.path.join(os.getenv("pang"), "lib") # for testing purposes use None
 
 if PANG_SYS is None:
-    PANG_SYS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib")
+    PANG_SYS = os.path.join(os.path.dirname(realpath(__file__)), "lib")
 
 PANG_SYS += os.path.sep
 
@@ -130,7 +158,6 @@ keyword_map = {
     "rshift": TokenType.RSHIFT,
 
     # Normal tokens
-    "if": TokenType.IF,
     "add": TokenType.ADD,
     "sub": TokenType.SUB,
     "mul": TokenType.MUL,
@@ -144,12 +171,26 @@ keyword_map = {
     "imod": TokenType.IMOD,
     "drop": TokenType.DROP,
     "swap": TokenType.SWAP,
-    "while": TokenType.WHILE,
     "apply": TokenType.APPLY,
     "quote": TokenType.QUOTE,
     
     "macro": TokenType.MACRO,
     "end": TokenType.END,
+}
+
+
+while_jumps = {
+    "=": "je",
+    "!": "jne",
+    "<": "jg",
+    ">": "jl",
+}
+
+jumps = {
+    "=": "jne",
+    "!": "je",
+    "<": "jle",
+    ">": "jge",
 }
 
 
