@@ -42,10 +42,10 @@ macro NULL 0 end
 //end
 
 
-macro gets
-    // setup stack: [..., stdin, n]
-    stdin swap fgets
-end
+//macro gets
+//    // setup stack: [..., stdin, n]
+//    stdin swap fgets
+//end
 
 /// @brief Writes string to a file.
 /// @param string pointer to char array to be written.
