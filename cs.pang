@@ -1,0 +1,8 @@
+include 'std.pang'
+
+"Enter number of hours to stay at car park: " stdout write drop drop
+
+0 quote "%d" call scanf drop drop drop
+60 mul
+
+"You will stay for %d minutes.\n" call printf drop drop drop

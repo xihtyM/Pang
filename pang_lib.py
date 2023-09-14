@@ -22,6 +22,8 @@ realpath = os.path.realpath
 
 ## Pang constants ##
 
+DEBUG = False
+
 date_obj = date.today()
 
 months = {
@@ -76,6 +78,7 @@ class ErrorType(Enum):
     Syntax = auto()
     Command = auto()
     Compile = auto()
+    NotImplemented = auto()
     IntegerTooLarge = auto()
 
 class TokenType(Enum):
@@ -90,13 +93,16 @@ class TokenType(Enum):
     LSHIFT = auto()
     RSHIFT = auto()
 
-    # Preprocessor
+    # Preprocessor / control flow
     MACRO = auto()
+    
+    IF = auto()
+    ELSE = auto()
+    WHILE = auto()
+    DO = auto()
+    
     END = auto()
     
-    # Control flow
-    IF = auto() #
-    WHILE = auto() #
 
     # Push to stack
     INT = auto()
@@ -140,7 +146,7 @@ class TokenType(Enum):
 class Token():
     typ: TokenType = TokenType.NONE
     raw: str = ""
-    value: Union[str, int] = ""
+    value: str | int | list = ""
     filename: str = ""
     ln: int = -1
 
@@ -157,6 +163,12 @@ keyword_map = {
     "lshift": TokenType.LSHIFT,
     "rshift": TokenType.RSHIFT,
 
+    # Branches
+    "if": TokenType.IF,
+    "do": TokenType.DO,
+    "else": TokenType.ELSE,
+    "while": TokenType.WHILE,
+    
     # Normal tokens
     "add": TokenType.ADD,
     "sub": TokenType.SUB,
@@ -176,21 +188,6 @@ keyword_map = {
     
     "macro": TokenType.MACRO,
     "end": TokenType.END,
-}
-
-
-while_jumps = {
-    "=": "je",
-    "!": "jne",
-    "<": "jg",
-    ">": "jl",
-}
-
-jumps = {
-    "=": "jne",
-    "!": "je",
-    "<": "jle",
-    ">": "jge",
 }
 
 

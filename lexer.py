@@ -262,18 +262,6 @@ class Lexer():
 
         Croak(ErrorType.Syntax, "cannot call keyword 'call'")
 
-    def lex_if_or_while(self, typ: TokenType) -> None:
-        self.skip_whitespace()
-        self.num()
-        self.skip_whitespace()
-        
-        
-        self.toks[-1].typ = typ
-        self.toks[-1].raw = self._get()
-        
-        if self.toks[-1].raw not in "<>=!":
-            Croak(ErrorType.Syntax, "expected comparison operator, instead got %s" % self.toks[-1].raw)
-
     def identifier(self) -> None:
         line = self.line
         raw = self._get()
@@ -287,6 +275,9 @@ class Lexer():
 
             if not cur:
                 break
+        
+        self.line = line
+        self.index -= 1
 
         if raw in keyword_map:
             self.toks.append(Token(keyword_map.get(raw), raw,
@@ -295,13 +286,12 @@ class Lexer():
             self.call()
         elif raw == "include":
             self.include_file()
-        elif raw in ("if", "while"):
-            self.lex_if_or_while(TokenType.IF if raw == "if" else TokenType.WHILE)
         else:
             self.toks.append(Token(TokenType.ID, raw, raw,
                              self.fn, line))
 
     def get_tokens_without_macros(self) -> None:
+        current = ""
         while self._peek():
             end = False
             while self._peek() in " \t\n":
@@ -500,3 +490,6 @@ class Lexer():
                 macro_added_toks.append(tok)
 
         self.toks = macro_added_toks
+        
+        if DEBUG:
+            print("\n".join([str(tok.typ) for tok in self.toks]))

@@ -19,13 +19,48 @@ def remove_prev_2(toks: list[Token]):
     toks.pop(-min(indexes))
     toks.pop(-(max(indexes) - 1))
 
+def find_branch_ends(toks: list[Token]) -> list[Token]:
+    stack = []
+        
+    for ip in range(len(toks)):
+        op = toks[ip]
+        
+        if op.typ == TokenType.IF:
+            stack.append(ip)
+        elif op.typ == TokenType.WHILE:
+            toks[ip].value = ip
+            stack.append(ip)
+        elif op.typ == TokenType.DO:
+            stack.append(ip)
+        elif op.typ == TokenType.ELSE:
+            if_ip = stack.pop()
+            
+            if toks[if_ip].typ != TokenType.IF:
+                Croak(ErrorType.Syntax, "'else' block can only be used inside an if statement. "
+                      "(detected at line %d, in file '%s')" % (
+                    toks[ip].ln, toks[ip].filename
+                ))
+
+            toks[if_ip].value = ip + 1
+            stack.append(ip)
+        elif op.typ == TokenType.END:
+            block_ip = stack.pop()
+            
+            if toks[block_ip].typ in (TokenType.ELSE, TokenType.IF):
+                toks[block_ip].value = ip
+                toks[ip].value = block_ip
+            elif toks[block_ip].typ == TokenType.DO:
+                toks[block_ip].value = ip
+                toks[ip].value = stack.pop()
+            
+    return toks
+
 def compile_ops_x64(toks: list[Token], calls: list[str]):
     strings = []
     
     stack = []
     new_toks: list[Token] = []
     drops = 0
-    labels = 0
     
     # optimise tokens
     for tok in toks:
@@ -67,125 +102,157 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
             case _:
                 stack = []
     
-    labels_dict = {
-        "main": ""
-    }
+    new_toks = find_branch_ends(new_toks)
     
-    res  = "bits 64\n"
-    res += "default rel\n"
-    res += "\n"
-    res += "segment .text\n"
-    res += "    global main\n"
-    res += "\n"
-    res += "    extern ExitProcess"
+    out  = "bits 64\n"
+    out += "default rel\n"
+    out += "\n"
+    out += "segment .text\n"
+    out += "    global main\n"
+    out += "\n"
+    out += "    extern ExitProcess"
     
     if calls:
-        res += ", " + ", ".join(calls)
+        out += ", " + ", ".join(calls)
     
-    res += "\n\n"
+    out += "\n\n"
     
-    current_label = "main"
-    nests = []
+    out += "main:\n"
     
-    for tok in new_toks:
-        labels_dict[current_label] += "    ; %s - \"%s\" line %d\n" % (tok.typ._name_, tok.filename, tok.ln)
+    for ip in range(len(new_toks)):
+        tok = new_toks[ip]
+        out += "    ; %s - \"%s\" line %d\n" % (tok.typ._name_, tok.filename, tok.ln)
         match tok.typ:
             case TokenType.INT:
                 if tok.value >= 1<<64:
                     Croak(ErrorType.IntegerTooLarge, "integer too large to push to the stack, must be a 64 bit integer.")
                 
                 if tok.value >= 1<<32:
-                    labels_dict[current_label] += "    mov     rax, %d\n" % tok.value
-                    labels_dict[current_label] += "    push    rax\n\n"
+                    out += "    mov     rax, %d\n" % tok.value
+                    out += "    push    rax\n\n"
                 else:
-                    labels_dict[current_label] += "    push    %d\n\n" % tok.value
+                    out += "    push    %d\n\n" % tok.value
             case TokenType.STR:
-                labels_dict[current_label] += "    lea     rax, [string_%d]\n" % len(strings)
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    lea     rax, [string_%d]\n" % len(strings)
+                out += "    push    rax\n\n"
                 strings.append(tok.value)
             case TokenType.ADD:
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    add     qword [rsp], rax\n\n"
+                out += "    pop     rax\n"
+                out += "    add     qword [rsp], rax\n\n"
             case TokenType.IADD:
-                labels_dict[current_label] += "    pop     rbx\n"
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    add     qword [rax], rbx\n"
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    add     qword [rax], rbx\n"
+                out += "    push    rax\n\n"
             case TokenType.SUB:
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    sub     qword [rsp], rax\n\n"
+                out += "    pop     rax\n"
+                out += "    sub     qword [rsp], rax\n\n"
             case TokenType.ISUB:
-                labels_dict[current_label] += "    pop     rbx\n"
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    sub     qword [rax], rbx\n"
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    sub     qword [rax], rbx\n"
+                out += "    push    rax\n\n"
             case TokenType.MUL:
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    imul    qword [rsp], rax\n\n"
+                out += "    pop     rax\n"
+                out += "    mov     rbx, [rsp]\n"
+                out += "    imul    rbx, rax\n\n"
+                out += "    mov     [rsp], rbx\n"
             case TokenType.IMUL:
-                labels_dict[current_label] += "    pop     rbx\n"
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    imul    qword [rax], rbx\n"
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    imul    qword [rax], rbx\n"
+                out += "    push    rax\n\n"
             case TokenType.DUP:
-                labels_dict[current_label] += "    push    qword [rsp]\n\n"
+                out += "    push    qword [rsp]\n\n"
             case TokenType.DROP:
-                labels_dict[current_label] += "    add     rsp, %d\n\n" % (tok.value * 8)
+                out += "    add     rsp, %d\n\n" % (tok.value * 8)
             case TokenType.SWAP:
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    xchg    qword [rsp], rax\n"
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    pop     rax\n"
+                out += "    xchg    qword [rsp], rax\n"
+                out += "    push    rax\n\n"
             case TokenType.CALL:
-                labels_dict[current_label] += "    mov     rcx, [rsp]\n"
-                labels_dict[current_label] += "    mov     rdx, [rsp + 8]\n"
-                labels_dict[current_label] += "    mov     r8, [rsp + 16]\n"
-                labels_dict[current_label] += "    mov     r9, [rsp + 24]\n"
-                labels_dict[current_label] += "    call    %s\n" % tok.value
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    mov     rcx, [rsp]\n"
+                out += "    mov     rdx, [rsp + 8]\n"
+                out += "    mov     r8, [rsp + 16]\n"
+                out += "    mov     r9, [rsp + 24]\n"
+                out += "    call    %s\n" % tok.value
+                out += "    push    rax\n\n"
             case TokenType.APPLY: # dereference
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    push    qword [rax]\n\n"
+                out += "    pop     rax\n"
+                out += "    push    qword [rax]\n\n"
             case TokenType.QUOTE: # reference
-                labels_dict[current_label] += "    lea     rax, [rsp]\n"
-                labels_dict[current_label] += "    push    rax\n\n"
+                out += "    lea     rax, [rsp]\n"
+                out += "    push    rax\n\n"
             case TokenType.BITNOT:
-                labels_dict[current_label] += "    not     qword [rsp]\n\n"
+                out += "    not     qword [rsp]\n\n"
             case TokenType.BITAND:
-                labels_dict[current_label] += "    pop     rax\n"
-                labels_dict[current_label] += "    and     qword [rsp], rax\n\n"
+                out += "    pop     rax\n"
+                out += "    and     qword [rsp], rax\n\n"
+            case TokenType.EQUAL:
+                out += "    mov     rcx, 0\n"
+                out += "    mov     rdx, 1\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    cmp     rax, rbx\n"
+                out += "    cmove   rcx, rdx\n"
+                out += "    push    rcx\n\n"
+            case TokenType.GREATER_THAN:
+                out += "    mov     rcx, 0\n"
+                out += "    mov     rdx, 1\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    cmp     rax, rbx\n"
+                out += "    cmovg   rcx, rdx\n"
+                out += "    push    rcx\n\n"
+            case TokenType.SMALLER_THAN:
+                out += "    mov     rcx, 0\n"
+                out += "    mov     rdx, 1\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    cmp     rax, rbx\n"
+                out += "    cmovl   rcx, rdx\n"
+                out += "    push    rcx\n\n"
+            case TokenType.NOT_EQUAL:
+                out += "    mov     rcx, 0\n"
+                out += "    mov     rdx, 1\n"
+                out += "    pop     rbx\n"
+                out += "    pop     rax\n"
+                out += "    cmp     rax, rbx\n"
+                out += "    cmovne  rcx, rdx\n"
+                out += "    push    rcx\n\n"
             case TokenType.IF:
-                labels_dict[current_label] += "    cmp     qword [rsp], %d\n" % tok.value
-                labels_dict[current_label] += "    %s      .LC%d\n" % (jumps[tok.raw], labels)
-                labels += 1
-                nests.append(TokenType.IF)
+                out += "    pop     rax\n"
+                out += "    test    rax, rax\n"
+                out += "    jz      LOC_%d\n\n" % tok.value
+            case TokenType.WHILE:
+                out += "LOC_%d:\n" % ip
+            case TokenType.DO:
+                out += "    pop     rax\n"
+                out += "    test    rax, rax\n"
+                out += "    jz      LOC_%d\n\n" % tok.value
+            case TokenType.ELSE:
+                out += "    jmp     LOC_%d\n" % tok.value
+                out += "LOC_%d:\n" % (ip + 1)
             case TokenType.END:
-                current = nests.pop()
-                
-                if current == TokenType.IF:
-                    current_label = ".LC%d" % ((labels - len(nests)) - 1)
-                    labels_dict[current_label] = ""
-                
+                if new_toks[tok.value].typ == TokenType.WHILE:
+                    out += "    jmp     LOC_%d\n" % tok.value
+                out += "LOC_%d:\n" % ip
+            case _:
+                Croak(ErrorType.NotImplemented, "token %s has not been implemented" % tok.typ._name_)
     
-    labels_dict[current_label] += "    xor     rax, rax\n"
-    labels_dict[current_label] += "    call    ExitProcess\n\n"
-    
-    res += "main:\n"
-    res += labels_dict.pop("main")
-    
-    for label in labels_dict:
-        res += "%s:\n" % label
-        res += labels_dict[label]
+    out += "    xor     rax, rax\n"
+    out += "    call    ExitProcess\n\n"
     
     # add strings
-    res += "segment .data\n"
+    out += "segment .data\n"
     for index, string in enumerate(strings):
-        res += "    string_%d db %s%s0\n" % (
+        out += "    string_%d db %s%s0\n" % (
             index,
             ",".join(map(str, list(bytes(string, "utf-8")))),
             ", " if string else ""
         )
     
-    return res
+    return out
 
 def compile_ops(toks: list[Token], calls: list[str]) -> str:
     if ARCHITECTURE.lower() in ("x86_64", "x86-64", "x64", "amd64"):
@@ -196,6 +263,7 @@ def compile_ops(toks: list[Token], calls: list[str]) -> str:
 def run_program() -> None:
     filename = False
     asm = False
+    run = False
 
     outname = "a"
     src_filename = None
@@ -211,6 +279,8 @@ def run_program() -> None:
             filename = True
         elif arg == "-S":
             asm = True
+        elif arg == "-r":
+            run = True
         else:
             if src_filename:
                 Croak(ErrorType.Command, "can only compile 1 file at a time")
@@ -235,11 +305,15 @@ def run_program() -> None:
         os.system("ld -s temp.obj -o %s.exe -e main -lkernel32 -lmsvcrt" % outname)
         os.remove("temp.obj")
         os.remove("temp.s")
+    
+        if run:
+            os.system("%s.exe" % outname)
 
 if __name__ == "__main__":
-    try:
-        run_program()
-    except Exception as e:
-        Croak(ErrorType.Compile,
-              "an unexpected error occurred, please make sure your installation is not corrupted.\n",
-              "Error message: %s\n" % e)
+    run_program()
+    #try:
+    #    run_program()
+    #except Exception as e:
+    #    Croak(ErrorType.Compile,
+    #          "an unexpected error occurred, please make sure your installation is not corrupted.\n",
+    #          "Error message: %s\n" % e)

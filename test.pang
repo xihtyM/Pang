@@ -1,5 +1,13 @@
 include 'std.pang'
 
-stdin readline
-stdout write
-//drop call free
+10 while dup 0 > do
+    "Hello World!\n" stdout write
+    drop drop
+    
+    1 sub
+
+    dup 1 = if
+        "1 more to go!\n" stdout write
+        drop drop
+    end
+end

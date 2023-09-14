@@ -31,20 +31,20 @@ macro NULL 0 end
 
 /// @brief Reads line from a file.
 /// @param file pointer to FILE struct to read from.
+/// @param number of characters to read.
 /// @return string read from file, must be freed.
-/// Stack must be preserved to [FILE*, char*] at end.
-macro readline
-    // stack: [char*, FILE*]
-    "                " swap
+/// Stack must be preserved to [FILE*, int, char*] at end.
+//macro fgets
+//    // stack: [FILE*, int, char*]
+//    call malloc
+//    "%p %d %p" call printf drop drop
+//    call fgets
+//end
 
-    // stack: [(malloc) char*, (fmt) char*, FILE*]
-    "%15[^\n]" swap
-    
-    // stack: [char*, FILE*]
-    call fscanf drop swap drop
-    
-    // stack: [FILE*, char*]
-    swap
+
+macro gets
+    // setup stack: [..., stdin, n]
+    stdin swap fgets
 end
 
 /// @brief Writes string to a file.
