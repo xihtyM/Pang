@@ -1,4 +1,4 @@
-include 'std.pang'
+include 'windef.pang'
 
 /* 
  * Standard library for quote/apply instructions
@@ -18,3 +18,13 @@ macro mk2ptr
 end
 
 
+macro dref_8bit     apply  sizeof_BYTE end
+macro dref_16bit    apply  sizeof_WORD end
+macro dref_32bit    apply sizeof_DWORD end
+macro dref_64bit    apply sizeof_QWORD end
+
+macro dref_char     dref_8bit end
+macro dref_short    dref_16bit end
+macro dref_long     dref_32bit end
+macro dref_cint     dref_32bit end
+macro dref_int      dref_64bit end

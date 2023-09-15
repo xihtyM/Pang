@@ -1,13 +1,4 @@
 include 'std.pang'
 
-10 while dup 0 > do
-    "Hello World!\n" stdout write
-    drop drop
-    
-    1 sub
-
-    dup 1 = if
-        "1 more to go!\n" stdout write
-        drop drop
-    end
-end
+"Hello, World!\n" strlen
+"%d\n" call printf

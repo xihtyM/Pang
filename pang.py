@@ -21,9 +21,21 @@ def remove_prev_2(toks: list[Token]):
 
 def find_branch_ends(toks: list[Token]) -> list[Token]:
     stack = []
+    apply = False
+    sub = 0
         
     for ip in range(len(toks)):
+        ip -= sub
         op = toks[ip]
+        
+        if apply:
+            if op.typ != TokenType.INT or op.value not in WIN32_apply_sizes:
+                Croak(ErrorType.Syntax, "apply must have a size specified (BYTE, WORD, DWORD or QWORD)")
+            
+            toks[ip - 1].value = WIN32_apply_sizes[toks.pop(ip).value]
+            sub += 1
+            apply = False
+            continue
         
         if op.typ == TokenType.IF:
             stack.append(ip)
@@ -52,7 +64,9 @@ def find_branch_ends(toks: list[Token]) -> list[Token]:
             elif toks[block_ip].typ == TokenType.DO:
                 toks[block_ip].value = ip
                 toks[ip].value = stack.pop()
-            
+        elif op.typ == TokenType.APPLY:
+            apply = True
+    
     return toks
 
 def compile_ops_x64(toks: list[Token], calls: list[str]):
@@ -101,6 +115,7 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
                 new_toks[-1].value = drops
             case _:
                 stack = []
+    
     
     new_toks = find_branch_ends(new_toks)
     
@@ -179,7 +194,8 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
                 out += "    push    rax\n\n"
             case TokenType.APPLY: # dereference
                 out += "    pop     rax\n"
-                out += "    push    qword [rax]\n\n"
+                out += "    %s\n" % tok.value # byte, word, dword, qword
+                out += "    push    rax\n\n"
             case TokenType.QUOTE: # reference
                 out += "    lea     rax, [rsp]\n"
                 out += "    push    rax\n\n"
@@ -263,6 +279,7 @@ def compile_ops(toks: list[Token], calls: list[str]) -> str:
 def run_program() -> None:
     filename = False
     asm = False
+    obj = False
     run = False
 
     outname = "a"
@@ -279,12 +296,23 @@ def run_program() -> None:
             filename = True
         elif arg == "-S":
             asm = True
+        elif arg == "-O":
+            obj = True
         elif arg == "-r":
             run = True
         else:
             if src_filename:
                 Croak(ErrorType.Command, "can only compile 1 file at a time")
             src_filename = arg
+    
+    if asm and obj:
+        Croak(ErrorType.Command, "cannot compile with assembly and object flags.")
+    
+    if obj and run:
+        Croak(ErrorType.Command, "cannot run and object file.")
+    
+    if asm and run:
+        Croak(ErrorType.Command, "cannot run and assembly file.")
     
     if not src_filename:
         Croak(ErrorType.Command, "no filename provided")
@@ -302,18 +330,20 @@ def run_program() -> None:
 
     if not asm:
         os.system("nasm -fwin64 %s -o temp.obj" % name)
-        os.system("ld -s temp.obj -o %s.exe -e main -lkernel32 -lmsvcrt" % outname)
-        os.remove("temp.obj")
+        
+        if not obj:
+            os.system("ld -s temp.obj -o %s.exe -e main -lkernel32 -lmsvcrt" % outname)
+            os.remove("temp.obj")
+            
         os.remove("temp.s")
     
         if run:
             os.system("%s.exe" % outname)
 
 if __name__ == "__main__":
-    run_program()
-    #try:
-    #    run_program()
-    #except Exception as e:
-    #    Croak(ErrorType.Compile,
-    #          "an unexpected error occurred, please make sure your installation is not corrupted.\n",
-    #          "Error message: %s\n" % e)
+    try:
+        run_program()
+    except Exception as e:
+        Croak(ErrorType.Compile,
+              "an unexpected error occurred, please make sure your installation is not corrupted.\n",
+              "Error message: %s\n" % e)

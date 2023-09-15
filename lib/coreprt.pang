@@ -1,5 +1,6 @@
 include 'limits.pang'
-include 'pointers.pang'
+include 'string.pang'
+include 'windef.pang'
 
 macro stdin_fileno  0 end
 macro stdout_fileno 1 end

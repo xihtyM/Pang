@@ -12,7 +12,7 @@ class Lexer():
         self.size = len(src)
         self.line = 1
         self.toks: list[Token] = []
-        self.includes: list[str] = []
+        self.includes = set()
         self.calls = set()
 
         self.lexing_call = False
@@ -230,13 +230,15 @@ class Lexer():
         # skip as has already been included
         if include_filename in self.includes:
             return
-
+        print(include_filename, [os.path.basename(x) for x in self.includes])
         new_toks = Lexer(open(include_filename, "r",
                          encoding="utf-8").read(), include_filename)
-        new_toks.includes = self.includes + [self.fn]
+        new_toks.includes = self.includes
+        new_toks.includes.add(self.fn)
         new_toks.get_tokens_without_macros()
 
-        self.includes.append(include_filename)
+        self.includes.update(new_toks.includes)
+        self.includes.add(include_filename)
 
         self.toks += new_toks.toks
 
@@ -425,7 +427,9 @@ class Lexer():
                         )
                     
                     for macro_tok in macros[tok.value]:
-                        cur_toks.append(macro_tok)
+                        cur_toks.append(Token(macro_tok.typ, macro_tok.raw,
+                                              macro_tok.value, macro_tok.filename,
+                                              macro_tok.ln))
 
         skip_macro = False
         skip_end = 0
@@ -475,11 +479,10 @@ class Lexer():
                                                     macro_tok.filename, macro_tok.ln))
                             __ENUM__ += 1
                         continue
-                    
-                    macro_tok.ln = tok.ln
-                    macro_tok.filename = tok.filename
 
-                    macro_added_toks.append(macro_tok)
+                    macro_added_toks.append(Token(macro_tok.typ, macro_tok.raw,
+                                              macro_tok.value, tok.filename,
+                                              tok.ln))
             elif tok.typ == TokenType.MACRO:
                 # skip macros as they have already been added
                 skip_macro = True

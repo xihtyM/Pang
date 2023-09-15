@@ -191,6 +191,14 @@ keyword_map = {
 }
 
 
+WIN32_apply_sizes = {
+    1: "movzx   rax, byte [rax]",
+    2: "movzx   rax, word [rax]",
+    4: "mov     eax, dword [rax]",
+    8: "mov     rax, qword [rax]",
+}
+
+
 def Croak(err_typ: ErrorType, *msg: str):
     """ Use Croak() for every pang error. """
     print("%sError: " % err_typ._name_, *msg, sep="")
