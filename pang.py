@@ -204,6 +204,9 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
             case TokenType.BITAND:
                 out += "    pop     rax\n"
                 out += "    and     qword [rsp], rax\n\n"
+            case TokenType.BITOR:
+                out += "    pop     rax\n"
+                out += "    or      qword [rsp], rax\n\n"
             case TokenType.EQUAL:
                 out += "    mov     rcx, 0\n"
                 out += "    mov     rdx, 1\n"

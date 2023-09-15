@@ -230,7 +230,7 @@ class Lexer():
         # skip as has already been included
         if include_filename in self.includes:
             return
-        print(include_filename, [os.path.basename(x) for x in self.includes])
+        
         new_toks = Lexer(open(include_filename, "r",
                          encoding="utf-8").read(), include_filename)
         new_toks.includes = self.includes
