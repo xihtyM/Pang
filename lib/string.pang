@@ -1,0 +1,12 @@
+include 'pointers.pang'
+
+
+macro strlen
+    dup dup
+
+    while dup dref_char 0 ! do
+        1 add
+    end
+
+    swap sub
+end

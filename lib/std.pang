@@ -1,33 +1,8 @@
-// BUILTIN TYPES
-macro sizeof_char       1 end
-macro sizeof_short      2 end
-macro sizeof_cint       4 end
-macro sizeof_long       4 end
-macro sizeof_float      4 end
-macro sizeof_long_long  8 end
-macro sizeof_double     8 end
-macro sizeof_ptr        8 end
-macro sizeof_int        8 end
-
-
-// STDINT
-macro sizeof_int8_t     1 end
-macro sizeof_int16_t    2 end
-macro sizeof_int32_t    4 end
-macro sizeof_int64_t    8 end
-macro sizeof_uint8_t    1 end
-macro sizeof_uint16_t   2 end
-macro sizeof_uint32_t   4 end
-macro sizeof_uint64_t   8 end
-macro sizeof_size_t     8 end
-macro sizeof_intmax_t   8 end
-
+include 'sizeof.pang'
 include 'coreprt.pang'
 
 // used to generate a unique number
 macro iota __ENUM__ end
-
-macro NULL 0 end
 
 /// @brief Reads line from a file.
 /// @param file pointer to FILE struct to read from.
@@ -55,7 +30,7 @@ macro write
     // START: [char*, FILE*]
 
     // stack: [FILE*, char*, strlen(char*)]
-    swap call strlen
+    swap strlen
 
 
     // stack: [FILE*, strlen(char*), sizeof(char), char*]
