@@ -1,4 +1,3 @@
 include 'std.pang'
 
-"Hello, World!\n" strlen
-"%d\n" call printf
+SECURITY_NULL_SID_AUTHORITY "%d\n" call printf

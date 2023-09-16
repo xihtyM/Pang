@@ -4,7 +4,7 @@ include 'pointers.pang'
 macro strlen
     dup dup
 
-    while dup dref_char 0 ! do
+    while dup dref_char do
         1 add
     end
 

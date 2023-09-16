@@ -1,0 +1,39 @@
+include 'types.pang'
+
+
+// TODO: extern every function... ahhahhuhauhauh i love this
+macro _CONSOLE_ANSI_ENABLED
+    0 quote
+    -11 call GetStdHandle swap drop
+    call GetConsoleMode
+
+    drop drop drop
+
+    // now just the returned value
+
+    0x0004 bor if
+        true
+    else
+        false
+    end
+end
+
+macro CONSOLE_ANSI_ENABLED
+    false
+end
+
+macro ANSI_RED
+    CONSOLE_ANSI_ENABLED if
+        "\u001b[38;2;255;0;0m"
+    else
+        "" // dummy string if ansi is not enabled
+    end
+end
+
+macro ANSI_END
+    CONSOLE_ANSI_ENABLED if
+        "\u001B[0m"
+    else
+        "" // dummy string if ansi is not enabled
+    end
+end

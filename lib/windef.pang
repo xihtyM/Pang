@@ -1,4 +1,5 @@
-include 'sizeof.pang'
+include 'types.pang'
+include 'errors.pang'
 
 
 macro sizeof_LONG_PTR   sizeof_long_long end
@@ -17,6 +18,8 @@ macro NULL 0 end
 
 macro FALSE 0 end
 macro TRUE  1 end
+
+macro ANYSIZE_ARRAY 1 end
 
 macro IN end
 macro OUT end
@@ -194,7 +197,7 @@ macro sizeof_LANGID     sizeof_WORD end
 // Compartment identifier
 //
 
-macro sizeof_COMPARTMENT_ID  4 end
+macro sizeof_COMPARTMENT_ID  sizeof_enum end
 macro sizeof_PCOMPARTMENT_ID sizeof_ptr end
 
 macro APPLICATION_ERROR_MASK       0x20000000 end
@@ -596,4 +599,1323 @@ macro sizeof_PXSAVE_FORMAT  sizeof_ptr end
 macro sizeof_XSAVE_CET_U_FORMAT     16 end
 macro sizeof_PXSAVE_CET_U_FORMAT    sizeof_ptr end
 
-// Continue at line 2628, <winnt.h>
+macro sizeof_XSAVE_AREA_HEADER  64 end
+macro sizeof_PXSAVE_AREA_HEADER sizeof_ptr end
+
+macro sizeof_XSAVE_AREA         576 end
+macro sizeof_PXSAVE_AREA        sizeof_ptr end
+
+macro sizeof_XSTATE_CONTEXT     32 end
+macro sizeof_PXSTATE_CONTEXT    sizeof_ptr end
+
+macro sizeof_SCOPE_TABLE_AMD64  20 end
+macro sizeof_PSCOPE_TABLE_AMD64 sizeof_ptr end
+
+macro sizeof_SCOPE_TABLE_ARM    20 end
+macro sizeof_PSCOPE_TABLE_ARM   sizeof_ptr end
+
+macro sizeof_SCOPE_TABLE_ARM64  20 end
+macro sizeof_PSCOPE_TABLE_ARM64 sizeof_ptr end
+
+
+macro sizeof_KNONVOLATILE_CONTEXT_POINTERS_ARM64    160 end
+macro sizeof_PKNONVOLATILE_CONTEXT_POINTERS_ARM64   sizeof_ptr end
+
+
+macro sizeof_LDT_ENTRY  8 end
+macro sizeof_PLDT_ENTRY sizeof_ptr end
+
+
+macro WOW64_CONTEXT_i386      0x00010000 end   // this assumes that i386 and
+macro WOW64_CONTEXT_i486      0x00010000 end   // i486 have identical context records
+
+macro WOW64_CONTEXT_CONTROL               WOW64_CONTEXT_i386 0x00000001 bor end // SS:SP, CS:IP, FLAGS, BP
+macro WOW64_CONTEXT_INTEGER               WOW64_CONTEXT_i386 0x00000002 bor end // AX, BX, CX, DX, SI, DI
+macro WOW64_CONTEXT_SEGMENTS              WOW64_CONTEXT_i386 0x00000004 bor end // DS, ES, FS, GS
+macro WOW64_CONTEXT_FLOATING_POINT        WOW64_CONTEXT_i386 0x00000008 bor end // 387 state
+macro WOW64_CONTEXT_DEBUG_REGISTERS       WOW64_CONTEXT_i386 0x00000010 bor end // DB 0-3,6,7
+macro WOW64_CONTEXT_EXTENDED_REGISTERS    WOW64_CONTEXT_i386 0x00000020 bor end // cpu specific extensions
+
+macro WOW64_CONTEXT_FULL
+    WOW64_CONTEXT_CONTROL WOW64_CONTEXT_INTEGER bor
+    WOW64_CONTEXT_SEGMENTS                      bor
+end
+
+macro WOW64_CONTEXT_ALL
+    WOW64_CONTEXT_CONTROL WOW64_CONTEXT_INTEGER bor
+    WOW64_CONTEXT_SEGMENTS                      bor
+    WOW64_CONTEXT_FLOATING_POINT                bor 
+    WOW64_CONTEXT_DEBUG_REGISTERS               bor
+    WOW64_CONTEXT_EXTENDED_REGISTERS            bor
+end
+
+macro WOW64_CONTEXT_XSTATE                WOW64_CONTEXT_i386 0x00000040 bor end
+macro WOW64_CONTEXT_EXCEPTION_ACTIVE      0x08000000 end
+macro WOW64_CONTEXT_SERVICE_ACTIVE        0x10000000 end
+macro WOW64_CONTEXT_EXCEPTION_REQUEST     0x40000000 end
+macro WOW64_CONTEXT_EXCEPTION_REPORTING   0x80000000 end
+
+//
+//  Define the size of the 80387 save area, which is in the context frame.
+//
+
+macro WOW64_SIZE_OF_80387_REGISTERS     80 end
+macro WOW64_MAXIMUM_SUPPORTED_EXTENSION 512 end
+
+macro sizeof_WOW64_FLOATING_SAVE_AREA   112 end
+macro sizeof_PWOW64_FLOATING_SAVE_AREA  sizeof_ptr end
+
+macro sizeof_WOW64_CONTEXT  716 end
+macro sizeof_PWOW64_CONTEXT sizeof_ptr end
+
+macro sizeof_WOW64_LDT_ENTRY    8 end
+macro sizeof_PWOW64_LDT_ENTRY   sizeof_ptr end
+
+macro sizeof_WOW64_DESCRIPTOR_TABLE_ENTRY   12 end
+macro sizeof_PWOW64_DESCRIPTOR_TABLE_ENTRY  sizeof_ptr end
+
+
+macro EXCEPTION_NONCONTINUABLE  0x1  end // Noncontinuable exception
+macro EXCEPTION_UNWINDING       0x2  end // Unwind is in progress
+macro EXCEPTION_EXIT_UNWIND     0x4  end // Exit unwind is in progress
+macro EXCEPTION_STACK_INVALID   0x8  end // Stack out of limits or unaligned
+macro EXCEPTION_NESTED_CALL     0x10 end // Nested exception handler call
+macro EXCEPTION_TARGET_UNWIND   0x20 end // Target unwind in progress
+macro EXCEPTION_COLLIDED_UNWIND 0x40 end // Collided exception handler call
+
+
+macro EXCEPTION_UNWIND
+    EXCEPTION_UNWINDING EXCEPTION_EXIT_UNWIND   bor
+    EXCEPTION_TARGET_UNWIND                     bor
+    EXCEPTION_COLLIDED_UNWIND                   bor
+end
+
+macro EXCEPTION_MAXIMUM_PARAMETERS  15 end // maximum number of exception parameters
+
+//
+// Exception record definition.
+//
+
+macro sizeof_EXCEPTION_RECORD       152 end
+macro sizeof_PEXCEPTION_RECORD      sizeof_ptr end
+
+macro sizeof_EXCEPTION_RECORD32     80 end
+macro sizeof_PEXCEPTION_RECORD32    sizeof_ptr end
+
+macro sizeof_EXCEPTION_RECORD64     152 end
+macro sizeof_PEXCEPTION_RECORD64    sizeof_ptr end
+
+//
+// Typedef for pointer returned by exception_info()
+//
+
+macro sizeof_EXCEPTION_POINTERS     16 end
+macro sizeof_PEXCEPTION_POINTERS    sizeof_ptr end
+
+
+macro PACCESS_TOKEN                 sizeof_PVOID end
+macro PSECURITY_DESCRIPTOR          sizeof_PVOID end
+macro PSID                          sizeof_PVOID end
+macro PCLAIMS_BLOB                  sizeof_PVOID end
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//                             ACCESS MASK                            //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+//
+//  Define the access mask as a longword sized structure divided up as
+//  follows:
+//
+//       3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+//       1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+//      +---------------+---------------+-------------------------------+
+//      |G|G|G|G|Res'd|A| StandardRights|         SpecificRights        |
+//      |R|W|E|A|     |S|               |                               |
+//      +-+-------------+---------------+-------------------------------+
+//
+//      typedef struct _ACCESS_MASK {
+//          WORD   SpecificRights;
+//          BYTE  StandardRights;
+//          BYTE  AccessSystemAcl : 1;
+//          BYTE  Reserved : 3;
+//          BYTE  GenericAll : 1;
+//          BYTE  GenericExecute : 1;
+//          BYTE  GenericWrite : 1;
+//          BYTE  GenericRead : 1;
+//      } ACCESS_MASK;
+//      typedef ACCESS_MASK *PACCESS_MASK;
+//
+//  but to make life simple for programmer's we'll allow them to specify
+//  a desired access mask by simply OR'ing together mulitple single rights
+//  and treat an access mask as a DWORD.  For example
+//
+//      DesiredAccess = DELETE | READ_CONTROL
+//
+//  So we'll declare ACCESS_MASK as DWORD
+//
+
+// begin_wdm
+// begin_ntoshvp
+macro sizeof_ACCESS_MASK   sizeof_DWORD end
+macro sizeof_PACCESS_MASK  sizeof_ptr end
+
+// end_ntoshvp
+// begin_access
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//                             ACCESS TYPES                           //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+
+// begin_wdm
+//
+//  The following are masks for the predefined standard access types.
+//
+
+macro DELETE                        0x00010000 end
+macro READ_CONTROL                  0x00020000 end
+macro WRITE_DAC                     0x00040000 end
+macro WRITE_OWNER                   0x00080000 end
+macro SYNCHRONIZE                   0x00100000 end
+
+macro STANDARD_RIGHTS_REQUIRED      0x000F0000 end
+
+macro STANDARD_RIGHTS_READ          READ_CONTROL end
+macro STANDARD_RIGHTS_WRITE         READ_CONTROL end
+macro STANDARD_RIGHTS_EXECUTE       READ_CONTROL end
+
+macro STANDARD_RIGHTS_ALL           0x001F0000 end
+
+macro SPECIFIC_RIGHTS_ALL           0x0000FFFF end
+
+//
+// AccessSystemAcl access type.
+//
+
+macro ACCESS_SYSTEM_SECURITY        0x01000000 end
+
+//
+// MaximumAllowed access type.
+//
+
+macro MAXIMUM_ALLOWED               0x02000000 end
+
+//
+// These are the generic rights.
+//
+
+macro GENERIC_READ      0x80000000 end
+macro GENERIC_WRITE     0x40000000 end
+macro GENERIC_EXECUTE   0x20000000 end
+macro GENERIC_ALL       0x10000000 end
+
+//
+// Define the generic mapping array. This is used to denote the
+// mapping of each generic access right to a specific access mask.
+//
+
+macro sizeof_GENERIC_MAPPING            16 end
+macro sizeof_PGENERIC_MAPPING           sizeof_ptr end
+
+
+macro sizeof_LUID_AND_ATTRIBUTES        12 end
+macro sizeof_LUID_AND_ATTRIBUTES_ARRAY  12 end
+
+macro sizeof_PLUID_AND_ATTRIBUTES       sizeof_ptr end
+macro sizeof_PLUID_AND_ATTRIBUTES_ARRAY sizeof_ptr end
+
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//              Security Id     (SID)                                 //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+//
+//
+// Pictorially the structure of an SID is as follows:
+//
+//         1   1   1   1   1   1
+//         5   4   3   2   1   0   9   8   7   6   5   4   3   2   1   0
+//      +---------------------------------------------------------------+
+//      |      SubAuthorityCount        |Reserved1 (SBZ)|   Revision    |
+//      +---------------------------------------------------------------+
+//      |                   IdentifierAuthority[0]                      |
+//      +---------------------------------------------------------------+
+//      |                   IdentifierAuthority[1]                      |
+//      +---------------------------------------------------------------+
+//      |                   IdentifierAuthority[2]                      |
+//      +---------------------------------------------------------------+
+//      |                                                               |
+//      +- -  -  -  -  -  -  -  SubAuthority[]  -  -  -  -  -  -  -  - -+
+//      |                                                               |
+//      +---------------------------------------------------------------+
+//
+//
+
+
+// begin_ntifs
+
+macro sizeof_SID_IDENTIFIER_AUTHORITY   6 end
+macro sizeof_PSID_IDENTIFIER_AUTHORITY  sizeof_ptr end
+
+macro sizeof_SID    12 end
+macro sizeof_PISID  sizeof_ptr end
+
+macro SID_REVISION                      1 end
+macro SID_MAX_SUB_AUTHORITIES           15 end
+macro SID_RECOMMENDED_SUB_AUTHORITIES   1 end
+
+macro SECURITY_MAX_SID_SIZE
+    sizeof_SID sizeof_DWORD sub
+    SID_MAX_SUB_AUTHORITIES sizeof_DWORD
+    mul add
+end
+
+// 2 (S-)
+// 4 (Rev(max: 255)-)
+// 15 (
+//      If (Auth < 2^32): Auth(max:4294967295)-
+//      Else:             0xAuth(max:FFFFFFFFFFFF)-
+//    )
+// (11 * SID_MAX_SUB_AUTHORITIES) (SubN(max:4294967295)-)
+// 1 (NULL character)
+// = 187 (assuming SID_MAX_SUB_AUTHORITIES = 15)
+macro SECURITY_MAX_SID_STRING_CHARACTERS
+    22
+    11 SID_MAX_SUB_AUTHORITIES
+    mul add
+end
+
+//
+// Union which can hold any valid sid.
+//
+
+macro sizeof_SE_SID         68 end
+macro sizeof_PSE_SID        sizeof_ptr end
+
+macro sizeof_SID_NAME_USE   sizeof_enum end
+macro sizeof_PSID_NAME_USE  sizeof_ptr end
+
+macro sizeof_SID_AND_ATTRIBUTES    16 end
+macro sizeof_PSID_AND_ATTRIBUTES   sizeof_ptr end
+
+macro sizeof_SID_AND_ATTRIBUTES_ARRAY   16 end
+macro sizeof_PSID_AND_ATTRIBUTES_ARRAY  sizeof_ptr end
+
+macro SID_HASH_SIZE             32 end
+macro sizeof_SID_HASH_ENTRY     sizeof_ULONG_PTR end
+macro sizeof_PSID_HASH_ENTRY    sizeof_ptr end
+
+macro sizeof_SID_AND_ATTRIBUTES_HASH    272 end
+macro sizeof_PSID_AND_ATTRIBUTES_HASH   sizeof_ptr end
+
+
+/////////////////////////////////////////////////////////////////////////////
+//                                                                         //
+// Universal well-known SIDs                                               //
+//                                                                         //
+//     Null SID                     S-1-0-0                                //
+//     World                        S-1-1-0                                //
+//     Local                        S-1-2-0                                //
+//     Creator Owner ID             S-1-3-0                                //
+//     Creator Group ID             S-1-3-1                                //
+//     Creator Owner Server ID      S-1-3-2                                //
+//     Creator Group Server ID      S-1-3-3                                //
+//                                                                         //
+//     (Non-unique IDs)             S-1-4                                  //
+//                                                                         //
+/////////////////////////////////////////////////////////////////////////////
+
+macro SECURITY_NULL_SID_AUTHORITY           __LINE__ STD_NO_IMPL end
+macro SECURITY_WORLD_SID_AUTHORITY          __LINE__ STD_NO_IMPL end
+macro SECURITY_LOCAL_SID_AUTHORITY          __LINE__ STD_NO_IMPL end
+macro SECURITY_CREATOR_SID_AUTHORITY        __LINE__ STD_NO_IMPL end
+macro SECURITY_NON_UNIQUE_AUTHORITY         __LINE__ STD_NO_IMPL end
+macro SECURITY_RESOURCE_MANAGER_AUTHORITY   __LINE__ STD_NO_IMPL end
+
+
+macro SECURITY_NULL_RID                 0x00000000 end
+macro SECURITY_WORLD_RID                0x00000000 end
+macro SECURITY_LOCAL_RID                0x00000000 end
+macro SECURITY_LOCAL_LOGON_RID          0x00000001 end
+
+macro SECURITY_CREATOR_OWNER_RID        0x00000000 end
+macro SECURITY_CREATOR_GROUP_RID        0x00000001 end
+
+macro SECURITY_CREATOR_OWNER_SERVER_RID 0x00000002 end
+macro SECURITY_CREATOR_GROUP_SERVER_RID 0x00000003 end
+
+macro SECURITY_CREATOR_OWNER_RIGHTS_RID 0x00000004 end
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// NT well-known SIDs                                                        //
+//                                                                           //
+//     NT Authority            S-1-5                                         //
+//     Dialup                  S-1-5-1                                       //
+//                                                                           //
+//     Network                 S-1-5-2                                       //
+//     Batch                   S-1-5-3                                       //
+//     Interactive             S-1-5-4                                       //
+//     (Logon IDs)             S-1-5-5-X-Y                                   //
+//     Service                 S-1-5-6                                       //
+//     AnonymousLogon          S-1-5-7       (aka null logon session)        //
+//     Proxy                   S-1-5-8                                       //
+//     Enterprise DC (EDC)     S-1-5-9       (aka domain controller account) //
+//     Self                    S-1-5-10      (self RID)                      //
+//     Authenticated User      S-1-5-11      (Authenticated user somewhere)  //
+//     Restricted Code         S-1-5-12      (Running restricted code)       //
+//     Terminal Server         S-1-5-13      (Running on Terminal Server)    //
+//     Remote Logon            S-1-5-14      (Remote Interactive Logon)      //
+//     This Organization       S-1-5-15                                      //
+//                                                                           //
+//     IUser                   S-1-5-17                                      //
+//     Local System            S-1-5-18                                      //
+//     Local Service           S-1-5-19                                      //
+//     Network Service         S-1-5-20                                      //
+//                                                                           //
+//     (NT non-unique IDs)     S-1-5-0x15-... (NT Domain Sids)               //
+//                                                                           //
+//     (Built-in domain)       S-1-5-0x20                                    //
+//                                                                           //
+//     (Security Package IDs)  S-1-5-0x40                                    //
+//     NTLM Authentication     S-1-5-0x40-10                                 //
+//     SChannel Authentication S-1-5-0x40-14                                 //
+//     Digest Authentication   S-1-5-0x40-21                                 //
+//                                                                           //
+//     Other Organization      S-1-5-1000    (>=1000 can not be filtered)    //
+//                                                                           //
+//                                                                           //
+// NOTE: the relative identifier values (RIDs) determine which security      //
+//       boundaries the SID is allowed to cross.  Before adding new RIDs,    //
+//       a determination needs to be made regarding which range they should  //
+//       be added to in order to ensure proper "SID filtering"               //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+macro SECURITY_NT_AUTHORITY        __LINE__ STD_NO_IMPL end   // ntifs
+
+macro SECURITY_DIALUP_RID                   0x00000001 end
+macro SECURITY_NETWORK_RID                  0x00000002 end
+macro SECURITY_BATCH_RID                    0x00000003 end
+macro SECURITY_INTERACTIVE_RID              0x00000004 end
+macro SECURITY_LOGON_IDS_RID                0x00000005 end
+macro SECURITY_LOGON_IDS_RID_COUNT          3 end
+macro SECURITY_SERVICE_RID                  0x00000006 end
+macro SECURITY_ANONYMOUS_LOGON_RID          0x00000007 end
+macro SECURITY_PROXY_RID                    0x00000008 end
+macro SECURITY_ENTERPRISE_CONTROLLERS_RID   0x00000009 end
+macro SECURITY_SERVER_LOGON_RID             SECURITY_ENTERPRISE_CONTROLLERS_RID end
+macro SECURITY_PRINCIPAL_SELF_RID           0x0000000A end
+macro SECURITY_AUTHENTICATED_USER_RID       0x0000000B end
+macro SECURITY_RESTRICTED_CODE_RID          0x0000000C end
+macro SECURITY_TERMINAL_SERVER_RID          0x0000000D end
+macro SECURITY_REMOTE_LOGON_RID             0x0000000E end
+macro SECURITY_THIS_ORGANIZATION_RID        0x0000000F end
+macro SECURITY_IUSER_RID                    0x00000011 end
+macro SECURITY_LOCAL_SYSTEM_RID             0x00000012 end
+macro SECURITY_LOCAL_SERVICE_RID            0x00000013 end
+macro SECURITY_NETWORK_SERVICE_RID          0x00000014 end
+
+macro SECURITY_NT_NON_UNIQUE                0x00000015 end
+macro SECURITY_NT_NON_UNIQUE_SUB_AUTH_COUNT 3 end
+
+macro SECURITY_ENTERPRISE_READONLY_CONTROLLERS_RID  0x00000016 end
+macro SECURITY_BUILTIN_DOMAIN_RID                   0x00000020 end
+macro SECURITY_WRITE_RESTRICTED_CODE_RID            0x00000021 end
+
+
+macro SECURITY_PACKAGE_BASE_RID     0x00000040 end
+macro SECURITY_PACKAGE_RID_COUNT    2 end
+macro SECURITY_PACKAGE_NTLM_RID     0x0000000A end
+macro SECURITY_PACKAGE_SCHANNEL_RID 0x0000000E end
+macro SECURITY_PACKAGE_DIGEST_RID   0x00000015 end
+
+macro SECURITY_CRED_TYPE_BASE_RID             0x00000041 end
+macro SECURITY_CRED_TYPE_RID_COUNT            2 end
+macro SECURITY_CRED_TYPE_THIS_ORG_CERT_RID    0x00000001 end
+
+macro SECURITY_MIN_BASE_RID     0x00000050 end
+
+macro SECURITY_SERVICE_ID_BASE_RID  0x00000050 end
+macro SECURITY_SERVICE_ID_RID_COUNT 6 end
+
+macro SECURITY_RESERVED_ID_BASE_RID 0x00000051 end
+
+macro SECURITY_APPPOOL_ID_BASE_RID  0x00000052 end
+macro SECURITY_APPPOOL_ID_RID_COUNT 6 end
+
+macro SECURITY_VIRTUALSERVER_ID_BASE_RID    0x00000053 end
+macro SECURITY_VIRTUALSERVER_ID_RID_COUNT   6 end
+
+macro SECURITY_USERMODEDRIVERHOST_ID_BASE_RID   0x00000054 end
+macro SECURITY_USERMODEDRIVERHOST_ID_RID_COUNT  6 end
+
+macro SECURITY_CLOUD_INFRASTRUCTURE_SERVICES_ID_BASE_RID    0x00000055 end
+macro SECURITY_CLOUD_INFRASTRUCTURE_SERVICES_ID_RID_COUNT   6 end
+
+macro SECURITY_WMIHOST_ID_BASE_RID          0x00000056 end
+macro SECURITY_WMIHOST_ID_RID_COUNT         6 end
+
+macro SECURITY_TASK_ID_BASE_RID             0x00000057 end
+
+macro SECURITY_NFS_ID_BASE_RID              0x00000058 end
+
+macro SECURITY_COM_ID_BASE_RID              0x00000059 end
+
+macro SECURITY_WINDOW_MANAGER_BASE_RID      0x0000005A end
+
+macro SECURITY_RDV_GFX_BASE_RID             0x0000005B end
+
+macro SECURITY_DASHOST_ID_BASE_RID          0x0000005C end
+macro SECURITY_DASHOST_ID_RID_COUNT         6 end
+
+macro SECURITY_USERMANAGER_ID_BASE_RID      0x0000005D end
+macro SECURITY_USERMANAGER_ID_RID_COUNT     6 end
+
+macro SECURITY_WINRM_ID_BASE_RID            0x0000005E end
+macro SECURITY_WINRM_ID_RID_COUNT           6 end
+
+macro SECURITY_CCG_ID_BASE_RID              0x0000005F end
+macro SECURITY_UMFD_BASE_RID                0x00000060 end
+
+macro SECURITY_VIRTUALACCOUNT_ID_RID_COUNT  6 end
+
+//
+// Virtual account logon is not limited to inbox callers.  Reserve base RID 0x6F for application usage.
+//
+
+macro SECURITY_MAX_BASE_RID             0x0000006F end
+macro SECURITY_MAX_ALWAYS_FILTERED      0x000003E7 end
+macro SECURITY_MIN_NEVER_FILTERED       0x000003E8 end
+
+macro SECURITY_OTHER_ORGANIZATION_RID   0x000003E8 end
+
+//
+// Service SID type RIDs are in the range 0x50- 0x6F.  Therefore, we are giving  the next available RID to Windows Mobile team.
+//
+
+macro SECURITY_WINDOWSMOBILE_ID_BASE_RID 0x00000070 end
+
+//
+// Installer Capability Group Sid related. Currently Base RID is same as LOCAL DOMAIN.
+//
+
+macro SECURITY_INSTALLER_GROUP_CAPABILITY_BASE      0x20 end
+macro SECURITY_INSTALLER_GROUP_CAPABILITY_RID_COUNT 9 end
+
+// Note: This is because the App Capability Rid is S-1-15-3-1024-...
+//       whereas the service group rid is          S-1-5-32-...
+//	The number of RIDs from hash (8) are the same for both
+macro SECURITY_INSTALLER_CAPABILITY_RID_COUNT 10 end
+
+//
+// Well-known group for local accounts.
+//
+
+macro SECURITY_LOCAL_ACCOUNT_RID            0x00000071 end
+macro SECURITY_LOCAL_ACCOUNT_AND_ADMIN_RID  0x00000072 end
+
+//
+// Well-known domain relative sub-authority values (RIDs)...
+//
+
+macro DOMAIN_GROUP_RID_AUTHORIZATION_DATA_IS_COMPOUNDED         0x000001F0 end
+macro DOMAIN_GROUP_RID_AUTHORIZATION_DATA_CONTAINS_CLAIMS       0x000001F1 end
+macro DOMAIN_GROUP_RID_ENTERPRISE_READONLY_DOMAIN_CONTROLLERS   0x000001F2 end
+
+macro FOREST_USER_RID_MAX 0x000001F3 end
+
+//
+// Well-known users ...
+//
+
+macro DOMAIN_USER_RID_ADMIN           0x000001F4 end
+macro DOMAIN_USER_RID_GUEST           0x000001F5 end
+macro DOMAIN_USER_RID_KRBTGT          0x000001F6 end
+macro DOMAIN_USER_RID_DEFAULT_ACCOUNT 0x000001F7 end
+macro DOMAIN_USER_RID_WDAG_ACCOUNT    0x000001F8 end
+
+macro DOMAIN_USER_RID_MAX 0x000003E7 end
+
+//
+// Well-known groups ...
+//
+
+macro DOMAIN_GROUP_RID_ADMINS                 0x00000200 end
+macro DOMAIN_GROUP_RID_USERS                  0x00000201 end
+macro DOMAIN_GROUP_RID_GUESTS                 0x00000202 end
+macro DOMAIN_GROUP_RID_COMPUTERS              0x00000203 end
+macro DOMAIN_GROUP_RID_CONTROLLERS            0x00000204 end
+macro DOMAIN_GROUP_RID_CERT_ADMINS            0x00000205 end
+macro DOMAIN_GROUP_RID_SCHEMA_ADMINS          0x00000206 end
+macro DOMAIN_GROUP_RID_ENTERPRISE_ADMINS      0x00000207 end
+macro DOMAIN_GROUP_RID_POLICY_ADMINS          0x00000208 end
+macro DOMAIN_GROUP_RID_READONLY_CONTROLLERS   0x00000209 end
+macro DOMAIN_GROUP_RID_CLONEABLE_CONTROLLERS  0x0000020A end
+macro DOMAIN_GROUP_RID_CDC_RESERVED           0x0000020C end
+macro DOMAIN_GROUP_RID_PROTECTED_USERS        0x0000020D end
+macro DOMAIN_GROUP_RID_KEY_ADMINS             0x0000020E end
+macro DOMAIN_GROUP_RID_ENTERPRISE_KEY_ADMINS  0x0000020F end
+
+//
+// Well-known aliases ...
+//
+
+macro DOMAIN_ALIAS_RID_ADMINS                         0x00000220 end
+macro DOMAIN_ALIAS_RID_USERS                          0x00000221 end
+macro DOMAIN_ALIAS_RID_GUESTS                         0x00000222 end
+macro DOMAIN_ALIAS_RID_POWER_USERS                    0x00000223 end
+
+macro DOMAIN_ALIAS_RID_ACCOUNT_OPS                    0x00000224 end
+macro DOMAIN_ALIAS_RID_SYSTEM_OPS                     0x00000225 end
+macro DOMAIN_ALIAS_RID_PRINT_OPS                      0x00000226 end
+macro DOMAIN_ALIAS_RID_BACKUP_OPS                     0x00000227 end
+
+macro DOMAIN_ALIAS_RID_REPLICATOR                     0x00000228 end
+macro DOMAIN_ALIAS_RID_RAS_SERVERS                    0x00000229 end
+macro DOMAIN_ALIAS_RID_PREW2KCOMPACCESS               0x0000022A end
+macro DOMAIN_ALIAS_RID_REMOTE_DESKTOP_USERS           0x0000022B end
+macro DOMAIN_ALIAS_RID_NETWORK_CONFIGURATION_OPS      0x0000022C end
+macro DOMAIN_ALIAS_RID_INCOMING_FOREST_TRUST_BUILDERS 0x0000022D end
+
+macro DOMAIN_ALIAS_RID_MONITORING_USERS               0x0000022E end
+macro DOMAIN_ALIAS_RID_LOGGING_USERS                  0x0000022F end
+macro DOMAIN_ALIAS_RID_AUTHORIZATIONACCESS            0x00000230 end
+macro DOMAIN_ALIAS_RID_TS_LICENSE_SERVERS             0x00000231 end
+macro DOMAIN_ALIAS_RID_DCOM_USERS                     0x00000232 end
+macro DOMAIN_ALIAS_RID_IUSERS                         0x00000238 end
+macro DOMAIN_ALIAS_RID_CRYPTO_OPERATORS               0x00000239 end
+macro DOMAIN_ALIAS_RID_CACHEABLE_PRINCIPALS_GROUP     0x0000023B end
+macro DOMAIN_ALIAS_RID_NON_CACHEABLE_PRINCIPALS_GROUP 0x0000023C end
+macro DOMAIN_ALIAS_RID_EVENT_LOG_READERS_GROUP        0x0000023D end
+macro DOMAIN_ALIAS_RID_CERTSVC_DCOM_ACCESS_GROUP      0x0000023E end
+macro DOMAIN_ALIAS_RID_RDS_REMOTE_ACCESS_SERVERS      0x0000023F end
+macro DOMAIN_ALIAS_RID_RDS_ENDPOINT_SERVERS           0x00000240 end
+macro DOMAIN_ALIAS_RID_RDS_MANAGEMENT_SERVERS         0x00000241 end
+macro DOMAIN_ALIAS_RID_HYPER_V_ADMINS                 0x00000242 end
+macro DOMAIN_ALIAS_RID_ACCESS_CONTROL_ASSISTANCE_OPS  0x00000243 end
+macro DOMAIN_ALIAS_RID_REMOTE_MANAGEMENT_USERS        0x00000244 end
+macro DOMAIN_ALIAS_RID_DEFAULT_ACCOUNT                0x00000245 end
+macro DOMAIN_ALIAS_RID_STORAGE_REPLICA_ADMINS         0x00000246 end
+macro DOMAIN_ALIAS_RID_DEVICE_OWNERS                  0x00000247 end
+
+//
+// Application Package Authority.
+//
+
+macro SECURITY_APP_PACKAGE_AUTHORITY   __LINE__ STD_NO_IMPL end
+
+macro SECURITY_APP_PACKAGE_BASE_RID             0x00000002 end
+macro SECURITY_BUILTIN_APP_PACKAGE_RID_COUNT    2 end
+macro SECURITY_APP_PACKAGE_RID_COUNT            8 end
+macro SECURITY_CAPABILITY_BASE_RID              0x00000003 end
+macro SECURITY_CAPABILITY_APP_RID               0x000000400 end
+macro SECURITY_BUILTIN_CAPABILITY_RID_COUNT     2 end
+macro SECURITY_CAPABILITY_RID_COUNT             5 end
+macro SECURITY_PARENT_PACKAGE_RID_COUNT         SECURITY_APP_PACKAGE_RID_COUNT end
+macro SECURITY_CHILD_PACKAGE_RID_COUNT          12 end
+
+//
+// Built-in Packages.
+//
+
+macro SECURITY_BUILTIN_PACKAGE_ANY_PACKAGE            0x00000001 end
+macro SECURITY_BUILTIN_PACKAGE_ANY_RESTRICTED_PACKAGE 0x00000002 end
+
+//
+// Built-in Capabilities.
+//
+
+macro SECURITY_CAPABILITY_INTERNET_CLIENT                 0x00000001 end
+macro SECURITY_CAPABILITY_INTERNET_CLIENT_SERVER          0x00000002 end
+macro SECURITY_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER   0x00000003 end
+macro SECURITY_CAPABILITY_PICTURES_LIBRARY                0x00000004 end
+macro SECURITY_CAPABILITY_VIDEOS_LIBRARY                  0x00000005 end
+macro SECURITY_CAPABILITY_MUSIC_LIBRARY                   0x00000006 end
+macro SECURITY_CAPABILITY_DOCUMENTS_LIBRARY               0x00000007 end
+macro SECURITY_CAPABILITY_ENTERPRISE_AUTHENTICATION       0x00000008 end
+macro SECURITY_CAPABILITY_SHARED_USER_CERTIFICATES        0x00000009 end
+macro SECURITY_CAPABILITY_REMOVABLE_STORAGE               0x0000000A end
+macro SECURITY_CAPABILITY_APPOINTMENTS                    0x0000000B end
+macro SECURITY_CAPABILITY_CONTACTS                        0x0000000C end
+
+macro SECURITY_CAPABILITY_INTERNET_EXPLORER               0x00001000 end
+
+//
+// Mandatory Label Authority.
+//
+
+macro SECURITY_MANDATORY_UNTRUSTED_RID            0x00000000 end
+macro SECURITY_MANDATORY_LOW_RID                  0x00001000 end
+macro SECURITY_MANDATORY_MEDIUM_RID               0x00002000 end
+
+macro SECURITY_MANDATORY_MEDIUM_PLUS_RID 
+    SECURITY_MANDATORY_MEDIUM_RID 0x100 add
+end
+
+macro SECURITY_MANDATORY_HIGH_RID                 0x00003000 end
+macro SECURITY_MANDATORY_SYSTEM_RID               0x00004000 end
+macro SECURITY_MANDATORY_PROTECTED_PROCESS_RID    0x00005000 end
+
+//
+// SECURITY_MANDATORY_MAXIMUM_USER_RID is the highest RID that
+// can be set by a usermode caller.
+//
+
+macro SECURITY_MANDATORY_MAXIMUM_USER_RID   SECURITY_MANDATORY_SYSTEM_RID end
+
+// TODO: add arguments to macros
+// for now just push the argument to the stack before
+// arg: IL
+macro MANDATORY_LEVEL_TO_MANDATORY_RID/*(IL) IL*/ 0x1000 mul end
+
+macro SECURITY_SCOPED_POLICY_ID_AUTHORITY __LINE__ STD_NO_IMPL end
+
+//
+// Authentication Authority.
+//
+
+macro SECURITY_AUTHENTICATION_AUTHORITY              __LINE__ STD_NO_IMPL end
+macro SECURITY_AUTHENTICATION_AUTHORITY_RID_COUNT             1 end
+macro SECURITY_AUTHENTICATION_AUTHORITY_ASSERTED_RID          0x00000001 end
+macro SECURITY_AUTHENTICATION_SERVICE_ASSERTED_RID            0x00000002 end
+macro SECURITY_AUTHENTICATION_FRESH_KEY_AUTH_RID              0x00000003 end
+macro SECURITY_AUTHENTICATION_KEY_TRUST_RID                   0x00000004 end
+macro SECURITY_AUTHENTICATION_KEY_PROPERTY_MFA_RID            0x00000005 end
+macro SECURITY_AUTHENTICATION_KEY_PROPERTY_ATTESTATION_RID    0x00000006 end
+
+//
+// Process Trust Authority
+//
+
+macro SECURITY_PROCESS_TRUST_AUTHORITY  __LINE__ STD_NO_IMPL end
+macro SECURITY_PROCESS_TRUST_AUTHORITY_RID_COUNT 2 end
+
+macro SECURITY_PROCESS_PROTECTION_TYPE_FULL_RID           0x00000400 end
+macro SECURITY_PROCESS_PROTECTION_TYPE_LITE_RID           0x00000200 end
+macro SECURITY_PROCESS_PROTECTION_TYPE_NONE_RID           0x00000000 end
+
+macro SECURITY_PROCESS_PROTECTION_LEVEL_WINTCB_RID        0x00002000 end
+macro SECURITY_PROCESS_PROTECTION_LEVEL_WINDOWS_RID       0x00001000 end
+macro SECURITY_PROCESS_PROTECTION_LEVEL_APP_RID           0x00000800 end
+macro SECURITY_PROCESS_PROTECTION_LEVEL_ANTIMALWARE_RID   0x00000600 end
+macro SECURITY_PROCESS_PROTECTION_LEVEL_AUTHENTICODE_RID  0x00000400 end
+macro SECURITY_PROCESS_PROTECTION_LEVEL_NONE_RID          0x00000000 end
+
+//
+// Trusted Installer RIDs
+//
+
+macro SECURITY_TRUSTED_INSTALLER_RID1 956008885 end
+macro SECURITY_TRUSTED_INSTALLER_RID2 3418522649 end
+macro SECURITY_TRUSTED_INSTALLER_RID3 1831038044 end
+macro SECURITY_TRUSTED_INSTALLER_RID4 1853292631 end
+macro SECURITY_TRUSTED_INSTALLER_RID5 2271478464 end
+
+
+
+//
+// Well known SID definitions for lookup.
+//
+
+macro sizeof_WELL_KNOWN_SID_TYPE sizeof_enum end
+
+// ENUM DECLARATION
+macro WELL_KNOWN_SID_TYPE_WinNullSid                                      0 end
+macro WELL_KNOWN_SID_TYPE_WinWorldSid                                     1 end
+macro WELL_KNOWN_SID_TYPE_WinLocalSid                                     2 end
+macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerSid                              3 end
+macro WELL_KNOWN_SID_TYPE_WinCreatorGroupSid                              4 end
+macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerServerSid                        5 end
+macro WELL_KNOWN_SID_TYPE_WinCreatorGroupServerSid                        6 end
+macro WELL_KNOWN_SID_TYPE_WinNtAuthoritySid                               7 end
+macro WELL_KNOWN_SID_TYPE_WinDialupSid                                    8 end
+macro WELL_KNOWN_SID_TYPE_WinNetworkSid                                   9 end
+macro WELL_KNOWN_SID_TYPE_WinBatchSid                                     10 end
+macro WELL_KNOWN_SID_TYPE_WinInteractiveSid                               11 end
+macro WELL_KNOWN_SID_TYPE_WinServiceSid                                   12 end
+macro WELL_KNOWN_SID_TYPE_WinAnonymousSid                                 13 end
+macro WELL_KNOWN_SID_TYPE_WinProxySid                                     14 end
+macro WELL_KNOWN_SID_TYPE_WinEnterpriseControllersSid                     15 end
+macro WELL_KNOWN_SID_TYPE_WinSelfSid                                      16 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticatedUserSid                         17 end
+macro WELL_KNOWN_SID_TYPE_WinRestrictedCodeSid                            18 end
+macro WELL_KNOWN_SID_TYPE_WinTerminalServerSid                            19 end
+macro WELL_KNOWN_SID_TYPE_WinRemoteLogonIdSid                             20 end
+macro WELL_KNOWN_SID_TYPE_WinLogonIdsSid                                  21 end
+macro WELL_KNOWN_SID_TYPE_WinLocalSystemSid                               22 end
+macro WELL_KNOWN_SID_TYPE_WinLocalServiceSid                              23 end
+macro WELL_KNOWN_SID_TYPE_WinNetworkServiceSid                            24 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinDomainSid                             25 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinAdministratorsSid                     26 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinUsersSid                              27 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinGuestsSid                             28 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinPowerUsersSid                         29 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinAccountOperatorsSid                   30 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinSystemOperatorsSid                    31 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinPrintOperatorsSid                     32 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinBackupOperatorsSid                    33 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinReplicatorSid                         34 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinPreWindows2000CompatibleAccessSid     35 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinRemoteDesktopUsersSid                 36 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinNetworkConfigurationOperatorsSid      37 end
+macro WELL_KNOWN_SID_TYPE_WinAccountAdministratorSid                      38 end
+macro WELL_KNOWN_SID_TYPE_WinAccountGuestSid                              39 end
+macro WELL_KNOWN_SID_TYPE_WinAccountKrbtgtSid                             40 end
+macro WELL_KNOWN_SID_TYPE_WinAccountDomainAdminsSid                       41 end
+macro WELL_KNOWN_SID_TYPE_WinAccountDomainUsersSid                        42 end
+macro WELL_KNOWN_SID_TYPE_WinAccountDomainGuestsSid                       43 end
+macro WELL_KNOWN_SID_TYPE_WinAccountComputersSid                          44 end
+macro WELL_KNOWN_SID_TYPE_WinAccountControllersSid                        45 end
+macro WELL_KNOWN_SID_TYPE_WinAccountCertAdminsSid                         46 end
+macro WELL_KNOWN_SID_TYPE_WinAccountSchemaAdminsSid                       47 end
+macro WELL_KNOWN_SID_TYPE_WinAccountEnterpriseAdminsSid                   48 end
+macro WELL_KNOWN_SID_TYPE_WinAccountPolicyAdminsSid                       49 end
+macro WELL_KNOWN_SID_TYPE_WinAccountRasAndIasServersSid                   50 end
+macro WELL_KNOWN_SID_TYPE_WinNTLMAuthenticationSid                        51 end
+macro WELL_KNOWN_SID_TYPE_WinDigestAuthenticationSid                      52 end
+macro WELL_KNOWN_SID_TYPE_WinSChannelAuthenticationSid                    53 end
+macro WELL_KNOWN_SID_TYPE_WinThisOrganizationSid                          54 end
+macro WELL_KNOWN_SID_TYPE_WinOtherOrganizationSid                         55 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinIncomingForestTrustBuildersSid        56 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinPerfMonitoringUsersSid                57 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinPerfLoggingUsersSid                   58 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinAuthorizationAccessSid                59 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinTerminalServerLicenseServersSid       60 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinDCOMUsersSid                          61 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinIUsersSid                             62 end
+macro WELL_KNOWN_SID_TYPE_WinIUserSid                                     63 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinCryptoOperatorsSid                    64 end
+macro WELL_KNOWN_SID_TYPE_WinUntrustedLabelSid                            65 end
+macro WELL_KNOWN_SID_TYPE_WinLowLabelSid                                  66 end
+macro WELL_KNOWN_SID_TYPE_WinMediumLabelSid                               67 end
+macro WELL_KNOWN_SID_TYPE_WinHighLabelSid                                 68 end
+macro WELL_KNOWN_SID_TYPE_WinSystemLabelSid                               69 end
+macro WELL_KNOWN_SID_TYPE_WinWriteRestrictedCodeSid                       70 end
+macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerRightsSid                        71 end
+macro WELL_KNOWN_SID_TYPE_WinCacheablePrincipalsGroupSid                  72 end
+macro WELL_KNOWN_SID_TYPE_WinNonCacheablePrincipalsGroupSid               73 end
+macro WELL_KNOWN_SID_TYPE_WinEnterpriseReadonlyControllersSid             74 end
+macro WELL_KNOWN_SID_TYPE_WinAccountReadonlyControllersSid                75 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinEventLogReadersGroup                  76 end
+macro WELL_KNOWN_SID_TYPE_WinNewEnterpriseReadonlyControllersSid          77 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinCertSvcDComAccessGroup                78 end
+macro WELL_KNOWN_SID_TYPE_WinMediumPlusLabelSid                           79 end
+macro WELL_KNOWN_SID_TYPE_WinLocalLogonSid                                80 end
+macro WELL_KNOWN_SID_TYPE_WinConsoleLogonSid                              81 end
+macro WELL_KNOWN_SID_TYPE_WinThisOrganizationCertificateSid               82 end
+macro WELL_KNOWN_SID_TYPE_WinApplicationPackageAuthoritySid               83 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinAnyPackageSid                         84 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityInternetClientSid                  85 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityInternetClientServerSid            86 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityPrivateNetworkClientServerSid      87 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityPicturesLibrarySid                 88 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityVideosLibrarySid                   89 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityMusicLibrarySid                    90 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityDocumentsLibrarySid                91 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilitySharedUserCertificatesSid          92 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityEnterpriseAuthenticationSid        93 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityRemovableStorageSid                94 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSRemoteAccessServersSid             95 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSEndpointServersSid                 96 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSManagementServersSid               97 end
+macro WELL_KNOWN_SID_TYPE_WinUserModeDriversSid                           98 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinHyperVAdminsSid                       99 end
+macro WELL_KNOWN_SID_TYPE_WinAccountCloneableControllersSid               100 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinAccessControlAssistanceOperatorsSid   101 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinRemoteManagementUsersSid              102 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationAuthorityAssertedSid           103 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationServiceAssertedSid             104 end
+macro WELL_KNOWN_SID_TYPE_WinLocalAccountSid                              105 end
+macro WELL_KNOWN_SID_TYPE_WinLocalAccountAndAdministratorSid              106 end
+macro WELL_KNOWN_SID_TYPE_WinAccountProtectedUsersSid                     107 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityAppointmentsSid                    108 end
+macro WELL_KNOWN_SID_TYPE_WinCapabilityContactsSid                        109 end
+macro WELL_KNOWN_SID_TYPE_WinAccountDefaultSystemManagedSid               110 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinDefaultSystemManagedGroupSid          111 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinStorageReplicaAdminsSid               112 end
+macro WELL_KNOWN_SID_TYPE_WinAccountKeyAdminsSid                          113 end
+macro WELL_KNOWN_SID_TYPE_WinAccountEnterpriseKeyAdminsSid                114 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyTrustSid                    115 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyPropertyMFASid              116 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyPropertyAttestationSid      117 end
+macro WELL_KNOWN_SID_TYPE_WinAuthenticationFreshKeyAuthSid                118 end
+macro WELL_KNOWN_SID_TYPE_WinBuiltinDeviceOwnersSid                       119 end
+
+//
+// Allocate the System Luid. The first 1000 LUIDs are reserved.
+// Use #999 here (0x3e7 = 999)
+//
+
+macro SYSTEM_LUID                 __LINE__ STD_NO_IMPL end
+macro ANONYMOUS_LOGON_LUID        __LINE__ STD_NO_IMPL end
+macro LOCALSERVICE_LUID           __LINE__ STD_NO_IMPL end
+macro NETWORKSERVICE_LUID         __LINE__ STD_NO_IMPL end
+macro IUSER_LUID                  __LINE__ STD_NO_IMPL end
+macro PROTECTED_TO_SYSTEM_LUID    __LINE__ STD_NO_IMPL end
+
+//
+// User and Group related SID attributes.
+//
+
+macro SE_GROUP_MANDATORY            0x00000001 end
+macro SE_GROUP_ENABLED_BY_DEFAULT   0x00000002 end
+macro SE_GROUP_ENABLED              0x00000004 end
+macro SE_GROUP_OWNER                0x00000008 end
+macro SE_GROUP_USE_FOR_DENY_ONLY    0x00000010 end
+macro SE_GROUP_INTEGRITY            0x00000020 end
+macro SE_GROUP_INTEGRITY_ENABLED    0x00000040 end
+macro SE_GROUP_LOGON_ID             0xC0000000 end
+macro SE_GROUP_RESOURCE             0x20000000 end
+
+macro SE_GROUP_VALID_ATTRIBUTES
+    SE_GROUP_MANDATORY SE_GROUP_ENABLED_BY_DEFAULT bor
+    SE_GROUP_ENABLED bor
+    SE_GROUP_OWNER bor
+    SE_GROUP_USE_FOR_DENY_ONLY bor
+    SE_GROUP_LOGON_ID bor
+    SE_GROUP_RESOURCE bor
+    SE_GROUP_INTEGRITY bor
+    SE_GROUP_INTEGRITY_ENABLED bor
+end
+
+//
+// User attributes
+//
+
+// (None yet defined.) lmfao
+
+
+//
+// ACL and ACE
+//
+
+
+//
+//  Define an ACL and the ACE format.  The structure of an ACL header
+//  followed by one or more ACEs.  Pictorally the structure of an ACL header
+//  is as follows:
+//
+//       3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+//       1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+//      +-------------------------------+---------------+---------------+
+//      |            AclSize            |      Sbz1     |  AclRevision  |
+//      +-------------------------------+---------------+---------------+
+//      |              Sbz2             |           AceCount            |
+//      +-------------------------------+-------------------------------+
+//
+//  The current AclRevision is defined to be ACL_REVISION.
+//
+//  AclSize is the size, in bytes, allocated for the ACL.  This includes
+//  the ACL header, ACES, and remaining free space in the buffer.
+//
+//  AceCount is the number of ACES in the ACL.
+//
+
+// begin_wdm
+// This is the *current* ACL revision
+
+macro ACL_REVISION    2 end
+macro ACL_REVISION_DS 4 end
+
+// This is the history of ACL revisions. Add a new one whenever
+// ACL_REVISION is updated.
+
+macro ACL_REVISION1       1 end
+macro ACL_REVISION2       2 end
+macro MIN_ACL_REVISION    ACL_REVISION2 end
+macro ACL_REVISION3       3 end
+macro ACL_REVISION4       4 end
+macro MAX_ACL_REVISION    ACL_REVISION4 end
+
+macro sizeof_ACL    8 end
+macro sizeof_PACL   sizeof_ptr end
+
+// end_wdm
+// begin_ntifs
+
+//
+//  The structure of an ACE is a common ace header followed by ace type
+//  specific data.  Pictorally the structure of the common ace header is
+//  as follows:
+//
+//       3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+//       1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+//      +---------------+-------+-------+---------------+---------------+
+//      |            AceSize            |    AceFlags   |     AceType   |
+//      +---------------+-------+-------+---------------+---------------+
+//
+//  AceType denotes the type of the ace, there are some predefined ace
+//  types
+//
+//  AceSize is the size, in bytes, of ace.
+//
+//  AceFlags are the Ace flags for audit and inheritance, defined shortly.
+
+macro sizeof_ACE_HEADER     4 end
+macro sizeof_PACE_HEADER    sizeof_ptr end
+
+//
+// The following are the predefined ace types that go into the AceType
+// field of an Ace header.
+//
+
+macro ACCESS_MIN_MS_ACE_TYPE                  0x0 end
+macro ACCESS_ALLOWED_ACE_TYPE                 0x0 end
+macro ACCESS_DENIED_ACE_TYPE                  0x1 end
+macro SYSTEM_AUDIT_ACE_TYPE                   0x2 end
+macro SYSTEM_ALARM_ACE_TYPE                   0x3 end
+macro ACCESS_MAX_MS_V2_ACE_TYPE               0x3 end
+
+macro ACCESS_ALLOWED_COMPOUND_ACE_TYPE        0x4 end
+macro ACCESS_MAX_MS_V3_ACE_TYPE               0x4 end
+
+macro ACCESS_MIN_MS_OBJECT_ACE_TYPE           0x5 end
+macro ACCESS_ALLOWED_OBJECT_ACE_TYPE          0x5 end
+macro ACCESS_DENIED_OBJECT_ACE_TYPE           0x6 end
+macro SYSTEM_AUDIT_OBJECT_ACE_TYPE            0x7 end
+macro SYSTEM_ALARM_OBJECT_ACE_TYPE            0x8 end
+macro ACCESS_MAX_MS_OBJECT_ACE_TYPE           0x8 end
+
+macro ACCESS_MAX_MS_V4_ACE_TYPE               0x8 end
+macro ACCESS_MAX_MS_ACE_TYPE                  0x8 end
+
+macro ACCESS_ALLOWED_CALLBACK_ACE_TYPE        0x9 end
+macro ACCESS_DENIED_CALLBACK_ACE_TYPE         0xA end
+macro ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE 0xB end
+macro ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE  0xC end
+macro SYSTEM_AUDIT_CALLBACK_ACE_TYPE          0xD end
+macro SYSTEM_ALARM_CALLBACK_ACE_TYPE          0xE end
+macro SYSTEM_AUDIT_CALLBACK_OBJECT_ACE_TYPE   0xF end
+
+macro SYSTEM_ALARM_CALLBACK_OBJECT_ACE_TYPE   0x10 end
+macro SYSTEM_MANDATORY_LABEL_ACE_TYPE         0x11 end
+macro SYSTEM_RESOURCE_ATTRIBUTE_ACE_TYPE      0x12 end
+macro SYSTEM_SCOPED_POLICY_ID_ACE_TYPE        0x13 end
+macro SYSTEM_PROCESS_TRUST_LABEL_ACE_TYPE     0x14 end
+macro SYSTEM_ACCESS_FILTER_ACE_TYPE           0x15 end
+macro ACCESS_MAX_MS_V5_ACE_TYPE               0x15 end
+
+//
+// The following are the inherit flags that go into the AceFlags field
+// of an Ace header.
+//
+
+macro OBJECT_INHERIT_ACE          0x1 end
+macro CONTAINER_INHERIT_ACE       0x2 end
+macro NO_PROPAGATE_INHERIT_ACE    0x4 end
+macro INHERIT_ONLY_ACE            0x8 end
+macro INHERITED_ACE               0x10 end
+macro VALID_INHERIT_FLAGS         0x1F end
+
+
+// The following are the currently defined ACE flags that go into the
+// AceFlags field of an ACE header. Each ACE type has its own set of
+// AceFlags.
+//
+//
+
+//
+// ACCESS_ALLOWED_ACE_TYPE
+//
+// These control whether the ACE is critical and cannot be removed.
+//
+// CRITICAL_ACE_FLAG - used only with access allowed ACE types to
+// indicate that the ACE is critical and cannot be removed.
+//
+
+macro CRITICAL_ACE_FLAG 0x20 end
+
+//
+// SYSTEM_AUDIT and SYSTEM_ALARM AceFlags
+//
+// These control the signaling of audit and alarms for success or failure.
+//
+// SUCCESSFUL_ACCESS_ACE_FLAG - used only with system audit and alarm ACE
+// types to indicate that a message is generated for successful accesses.
+//
+// FAILED_ACCESS_ACE_FLAG - used only with system audit and alarm ACE types
+// to indicate that a message is generated for failed accesses.
+//
+
+macro SUCCESSFUL_ACCESS_ACE_FLAG    0x40 end
+macro FAILED_ACCESS_ACE_FLAG        0x80 end
+
+//
+// SYSTEM_ACCESS_FILTER_ACE AceFlags
+//
+// These control the behaviour of SYSTEM_ACCESS_FILTER_ACE.
+//
+// TRUST_PROTECTED_FILTER_ACE_FLAG - used only with SYSTEM_FILTERING_ACE_TYPE
+// ACEs to indicate that this ACE may not be deleted/modified except when the,
+// the current Trust Level dominates the one specified in the Ace SID.
+// If this flag is set then the SID in the ACE should be a valid TrustLevelSid.
+//
+
+macro TRUST_PROTECTED_FILTER_ACE_FLAG 0x40 end
+
+
+//
+//  We'll define the structure of the predefined ACE types.  Pictorally
+//  the structure of the predefined ACE's is as follows:
+//
+//       3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+//       1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+//      +---------------+-------+-------+---------------+---------------+
+//      |    AceFlags   | Resd  |Inherit|    AceSize    |     AceType   |
+//      +---------------+-------+-------+---------------+---------------+
+//      |                              Mask                             |
+//      +---------------------------------------------------------------+
+//      |                                                               |
+//      +                                                               +
+//      |                                                               |
+//      +                              Sid                              +
+//      |                                                               |
+//      +                                                               +
+//      |                                                               |
+//      +---------------------------------------------------------------+
+//
+//  Mask is the access mask associated with the ACE.  This is either the
+//  access allowed, access denied, audit, or alarm mask.
+//
+//  Sid is the Sid associated with the ACE.
+//
+
+//  The following are the four predefined ACE types.
+
+//  Examine the AceType field in the Header to determine
+//  which structure is appropriate to use for casting.
+
+
+// all 12 lmfaoo
+macro sizeof_ACCESS_ALLOWED_ACE                 12 end
+macro sizeof_ACCESS_DENIED_ACE                  12 end
+macro sizeof_SYSTEM_AUDIT_ACE                   12 end
+macro sizeof_SYSTEM_ALARM_ACE                   12 end
+macro sizeof_SYSTEM_RESOURCE_ATTRIBUTE_ACE      12 end
+macro sizeof_SYSTEM_SCOPED_POLICY_ID_ACE        12 end
+macro sizeof_SYSTEM_MANDATORY_LABEL_ACE         12 end
+macro sizeof_SYSTEM_PROCESS_TRUST_LABEL_ACE     12 end
+macro sizeof_SYSTEM_ACCESS_FILTER_ACE           12 end
+
+macro sizeof_PACCESS_ALLOWED_ACE                sizeof_ptr end
+macro sizeof_PACCESS_DENIED_ACE                 sizeof_ptr end
+macro sizeof_PSYSTEM_AUDIT_ACE                  sizeof_ptr end
+macro sizeof_PSYSTEM_ALARM_ACE                  sizeof_ptr end
+macro sizeof_PSYSTEM_RESOURCE_ATTRIBUTE_ACE     sizeof_ptr end
+macro sizeof_PSYSTEM_SCOPED_POLICY_ID_ACE       sizeof_ptr end
+macro sizeof_PSYSTEM_MANDATORY_LABEL_ACE        sizeof_ptr end
+macro sizeof_PSYSTEM_PROCESS_TRUST_LABEL_ACE    sizeof_ptr end
+macro sizeof_PSYSTEM_ACCESS_FILTER_ACE          sizeof_ptr end
+
+
+macro SYSTEM_MANDATORY_LABEL_NO_WRITE_UP         0x1 end
+macro SYSTEM_MANDATORY_LABEL_NO_READ_UP          0x2 end
+macro SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP       0x4 end
+
+macro SYSTEM_MANDATORY_LABEL_VALID_MASK
+    SYSTEM_MANDATORY_LABEL_NO_WRITE_UP SYSTEM_MANDATORY_LABEL_NO_READ_UP    bor
+    SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP                                    bor
+end
+
+
+// Placeholder value that allows all ranges.
+macro SYSTEM_PROCESS_TRUST_LABEL_VALID_MASK     0x00ffffff end
+macro SYSTEM_PROCESS_TRUST_NOCONSTRAINT_MASK    0xffffffff end
+macro SYSTEM_ACCESS_FILTER_VALID_MASK           0x00ffffff end
+macro SYSTEM_ACCESS_FILTER_NOCONSTRAINT_MASK    0xffffffff end
+// end_ntifs
+
+
+// all the same size again...
+macro sizeof_ACCESS_ALLOWED_OBJECT_ACE  48 end
+macro sizeof_ACCESS_DENIED_OBJECT_ACE   48 end
+macro sizeof_SYSTEM_AUDIT_OBJECT_ACE    48 end
+macro sizeof_SYSTEM_ALARM_OBJECT_ACE    48 end
+
+macro sizeof_PACCESS_ALLOWED_OBJECT_ACE sizeof_ptr end
+macro sizeof_PACCESS_DENIED_OBJECT_ACE  sizeof_ptr end
+macro sizeof_PSYSTEM_AUDIT_OBJECT_ACE   sizeof_ptr end
+macro sizeof_PSYSTEM_ALARM_OBJECT_ACE   sizeof_ptr end
+
+//
+// Callback ace support in post Win2000.
+// Resource managers can put their own data after Sidstart + Length of the sid
+//
+
+macro sizeof_ACCESS_ALLOWED_CALLBACK_ACE    12 end
+macro sizeof_ACCESS_DENIED_CALLBACK_ACE     12 end
+macro sizeof_SYSTEM_AUDIT_CALLBACK_ACE      12 end
+macro sizeof_SYSTEM_ALARM_CALLBACK_ACE      12 end
+
+macro sizeof_PACCESS_ALLOWED_CALLBACK_ACE   sizeof_ptr end
+macro sizeof_PACCESS_DENIED_CALLBACK_ACE    sizeof_ptr end
+macro sizeof_PSYSTEM_AUDIT_CALLBACK_ACE     sizeof_ptr end
+macro sizeof_PSYSTEM_ALARM_CALLBACK_ACE     sizeof_ptr end
+
+
+macro sizeof_ACCESS_ALLOWED_CALLBACK_OBJECT_ACE     48 end
+macro sizeof_ACCESS_DENIED_CALLBACK_OBJECT_ACE      48 end
+macro sizeof_SYSTEM_AUDIT_CALLBACK_OBJECT_ACE       48 end
+macro sizeof_SYSTEM_ALARM_CALLBACK_OBJECT_ACE       48 end
+
+macro sizeof_PACCESS_ALLOWED_CALLBACK_OBJECT_ACE    sizeof_ptr end
+macro sizeof_PACCESS_DENIED_CALLBACK_OBJECT_ACE     sizeof_ptr end
+macro sizeof_PSYSTEM_AUDIT_CALLBACK_OBJECT_ACE      sizeof_ptr end
+macro sizeof_PSYSTEM_ALARM_CALLBACK_OBJECT_ACE      sizeof_ptr end
+
+//
+// Currently define Flags for "OBJECT" ACE types.
+//
+
+macro ACE_OBJECT_TYPE_PRESENT           0x1 end
+macro ACE_INHERITED_OBJECT_TYPE_PRESENT 0x2 end
+
+//
+// The following declarations are used for setting and querying information
+// about and ACL. First are the various information classes available to
+// the user.
+//
+
+macro sizeof_ACL_INFORMATION_CLASS sizeof_enum end
+
+// ENUM DECLARATION
+macro ACL_INFORMATION_CLASS_AclRevisionInformation  1 end
+macro ACL_INFORMATION_CLASS_AclSizeInformation      2 end
+
+//
+// This record is returned/sent if the user is requesting/setting the
+// AclRevisionInformation.
+//
+
+macro sizeof_ACL_REVISION_INFORMATION   4 end
+macro sizeof_PACL_REVISION_INFORMATION  sizeof_ptr end
+
+//
+// This record is returned if the user is requesting AclSizeInformation.
+//
+
+macro sizeof_ACL_SIZE_INFORMATION   12 end
+macro sizeof_PACL_SIZE_INFORMATION  sizeof_ptr end
+
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//                             SECURITY_DESCRIPTOR                    //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+//
+// Define the Security Descriptor and related data types.
+// This is an opaque data structure.
+//
+
+// begin_wdm
+//
+// Current security descriptor revision value
+//
+
+macro SECURITY_DESCRIPTOR_REVISION  1 end
+
+// end_wdm
+// begin_ntifs
+
+macro sizeof_SECURITY_DESCRIPTOR        40 end
+
+macro SECURITY_DESCRIPTOR_MIN_LENGTH    sizeof_SECURITY_DESCRIPTOR end
+
+
+macro sizeof_SECURITY_DESCRIPTOR_CONTROL    sizeof_WORD end
+macro sizeof_PSECURITY_DESCRIPTOR_CONTROL   sizeof_ptr end
+
+macro SE_OWNER_DEFAULTED        0x0001 end
+macro SE_GROUP_DEFAULTED        0x0002 end
+macro SE_DACL_PRESENT           0x0004 end
+macro SE_DACL_DEFAULTED         0x0008 end
+macro SE_SACL_PRESENT           0x0010 end
+macro SE_SACL_DEFAULTED         0x0020 end
+macro SE_DACL_AUTO_INHERIT_REQ  0x0100 end
+macro SE_SACL_AUTO_INHERIT_REQ  0x0200 end
+macro SE_DACL_AUTO_INHERITED    0x0400 end
+macro SE_SACL_AUTO_INHERITED    0x0800 end
+macro SE_DACL_PROTECTED         0x1000 end
+macro SE_SACL_PROTECTED         0x2000 end
+macro SE_RM_CONTROL_VALID       0x4000 end
+macro SE_SELF_RELATIVE          0x8000 end
+
+//
+//  Where:
+//
+//      SE_OWNER_DEFAULTED - This boolean flag, when set, indicates that the
+//          SID pointed to by the Owner field was provided by a
+//          defaulting mechanism rather than explicitly provided by the
+//          original provider of the security descriptor.  This may
+//          affect the treatment of the SID with respect to inheritence
+//          of an owner.
+//
+//      SE_GROUP_DEFAULTED - This boolean flag, when set, indicates that the
+//          SID in the Group field was provided by a defaulting mechanism
+//          rather than explicitly provided by the original provider of
+//          the security descriptor.  This may affect the treatment of
+//          the SID with respect to inheritence of a primary group.
+//
+//      SE_DACL_PRESENT - This boolean flag, when set, indicates that the
+//          security descriptor contains a discretionary ACL.  If this
+//          flag is set and the Dacl field of the SECURITY_DESCRIPTOR is
+//          null, then a null ACL is explicitly being specified.
+//
+//      SE_DACL_DEFAULTED - This boolean flag, when set, indicates that the
+//          ACL pointed to by the Dacl field was provided by a defaulting
+//          mechanism rather than explicitly provided by the original
+//          provider of the security descriptor.  This may affect the
+//          treatment of the ACL with respect to inheritence of an ACL.
+//          This flag is ignored if the DaclPresent flag is not set.
+//
+//      SE_SACL_PRESENT - This boolean flag, when set,  indicates that the
+//          security descriptor contains a system ACL pointed to by the
+//          Sacl field.  If this flag is set and the Sacl field of the
+//          SECURITY_DESCRIPTOR is null, then an empty (but present)
+//          ACL is being specified.
+//
+//      SE_SACL_DEFAULTED - This boolean flag, when set, indicates that the
+//          ACL pointed to by the Sacl field was provided by a defaulting
+//          mechanism rather than explicitly provided by the original
+//          provider of the security descriptor.  This may affect the
+//          treatment of the ACL with respect to inheritence of an ACL.
+//          This flag is ignored if the SaclPresent flag is not set.
+//
+//      SE_SELF_RELATIVE - This boolean flag, when set, indicates that the
+//          security descriptor is in self-relative form.  In this form,
+//          all fields of the security descriptor are contiguous in memory
+//          and all pointer fields are expressed as offsets from the
+//          beginning of the security descriptor.  This form is useful
+//          for treating security descriptors as opaque data structures
+//          for transmission in communication protocol or for storage on
+//          secondary media.
+//
+//
+//
+// Pictorially the structure of a security descriptor is as follows:
+//
+//       3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+//       1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+//      +---------------------------------------------------------------+
+//      |            Control            |Reserved1 (SBZ)|   Revision    |
+//      +---------------------------------------------------------------+
+//      |                            Owner                              |
+//      +---------------------------------------------------------------+
+//      |                            Group                              |
+//      +---------------------------------------------------------------+
+//      |                            Sacl                               |
+//      +---------------------------------------------------------------+
+//      |                            Dacl                               |
+//      +---------------------------------------------------------------+
+//
+// In general, this data structure should be treated opaquely to ensure future
+// compatibility.
+//
+//
+
+// Continue at line 10198, <winnt.h>

@@ -1,4 +1,4 @@
-include 'sizeof.pang'
+include 'types.pang'
 include 'coreprt.pang'
 
 // used to generate a unique number

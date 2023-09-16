@@ -1,0 +1,7 @@
+include 'terminal.pang'
+
+macro STD_NO_IMPL
+    ANSI_END swap ANSI_RED
+    "%sNotImplementedError: line %d%s\n" call printf
+    -1 call exit
+end

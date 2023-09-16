@@ -133,6 +133,8 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
     out += "\n\n"
     
     out += "main:\n"
+    out += "    ; setup\n"
+    out += "    mov     r15, 0\n\n"
     
     for ip in range(len(new_toks)):
         tok = new_toks[ip]
@@ -208,37 +210,29 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
                 out += "    pop     rax\n"
                 out += "    or      qword [rsp], rax\n\n"
             case TokenType.EQUAL:
-                out += "    mov     rcx, 0\n"
-                out += "    mov     rdx, 1\n"
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
                 out += "    cmp     rax, rbx\n"
-                out += "    cmove   rcx, rdx\n"
-                out += "    push    rcx\n\n"
+                out += "    sete    r15b\n"
+                out += "    push    r15\n\n"
             case TokenType.GREATER_THAN:
-                out += "    mov     rcx, 0\n"
-                out += "    mov     rdx, 1\n"
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
                 out += "    cmp     rax, rbx\n"
-                out += "    cmovg   rcx, rdx\n"
-                out += "    push    rcx\n\n"
+                out += "    setg    r15b\n"
+                out += "    push    r15\n\n"
             case TokenType.SMALLER_THAN:
-                out += "    mov     rcx, 0\n"
-                out += "    mov     rdx, 1\n"
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
                 out += "    cmp     rax, rbx\n"
-                out += "    cmovl   rcx, rdx\n"
-                out += "    push    rcx\n\n"
+                out += "    setl    r15b\n"
+                out += "    push    r15\n\n"
             case TokenType.NOT_EQUAL:
-                out += "    mov     rcx, 0\n"
-                out += "    mov     rdx, 1\n"
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
                 out += "    cmp     rax, rbx\n"
-                out += "    cmovne  rcx, rdx\n"
-                out += "    push    rcx\n\n"
+                out += "    setne   r15b\n"
+                out += "    push    r15\n\n"
             case TokenType.IF:
                 out += "    pop     rax\n"
                 out += "    test    rax, rax\n"
@@ -268,7 +262,7 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
         out += "    string_%d db %s%s0\n" % (
             index,
             ",".join(map(str, list(bytes(string, "utf-8")))),
-            ", " if string else ""
+            "," if string else ""
         )
     
     return out

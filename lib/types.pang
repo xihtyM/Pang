@@ -2,6 +2,7 @@
 macro sizeof_char       1 end
 macro sizeof_short      2 end
 macro sizeof_cint       4 end
+macro sizeof_enum       4 end // each value is represented as int
 macro sizeof_long       4 end
 macro sizeof_ulong      4 end
 macro sizeof_float      4 end
@@ -25,3 +26,6 @@ macro sizeof_size_t     8 end
 macro sizeof_intmax_t   8 end
 
 macro sizeof_wchar_t    sizeof_short end
+
+macro true  1 end
+macro false 0 end

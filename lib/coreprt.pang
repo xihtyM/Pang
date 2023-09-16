@@ -1,5 +1,7 @@
 include 'limits.pang'
 include 'string.pang'
+include 'errors.pang'
+include 'types.pang'
 include 'windef.pang'
 
 macro stdin_fileno  0 end
