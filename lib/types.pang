@@ -26,6 +26,7 @@ macro sizeof_size_t     8 end
 macro sizeof_intmax_t   8 end
 
 macro sizeof_wchar_t    sizeof_short end
+macro sizeof___int64    sizeof_int64_t end
 
 macro true  1 end
 macro false 0 end

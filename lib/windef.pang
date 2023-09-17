@@ -1,5 +1,70 @@
+//
+// Note 1:  Structures and types are defined with their sizes as in
+//          sizeof_StructureOrTypeName, because they *technically don't exist
+//          but need to be defined for returns of WINAPI functions etc.
+//
+// Note 2:  All enums should be defined as
+//          macro sizeof_EnumName sizeof_enum end
+//          as every enum is the same size.
+//
+//        - ENUM DECLARATION comment to start the enum with:
+//          macro Name number end
+//        - END ENUM DECLARATION comment to end the enum
+//
+// Note 3:  All pointers have the same size in memory, which is defined
+//          in 'types.pang' as 'sizeof_ptr'.
+//
+//
+// This library contains the size of every type and
+// structure defined in the Windows API.
+// Also should contain every (non deprecated) macro
+// defined for the Windows API.
+//
+
+
 include 'types.pang'
 include 'errors.pang'
+include 'math.pang'
+
+
+//
+// Gets the size of a structure after padding.
+//
+
+// start: size, max
+macro __size_align
+    // size, size, max
+    swap dup over
+
+    // size, size, max, max
+    dup
+
+    // size, max, max, size
+    over
+    
+    // size, max, size % max
+    swap divmod swap drop
+
+    dup 0 ! if
+        sub add
+    else
+        drop drop
+    end
+end
+
+// TODO: actually delete the array not just the pointer
+macro __delete_array drop end
+
+macro __initialize_struct   quote 8 sub end
+macro __end_struct
+    0 swap // null terminate the array
+    max swap // get maximum value of the array
+    sum swap __delete_array
+    swap __size_align
+end
+
+// keep the pointer ontop of the stack to move the max value into
+macro __add_struct_member   swap end
 
 
 macro sizeof_LONG_PTR   sizeof_long_long end
@@ -165,7 +230,15 @@ macro ALL_PROCESSOR_GROUPS  0xffff end
 // group number and relative processor number within the group.
 //
 
-macro sizeof_PROCESSOR_NUMBER   4 end
+macro sizeof_PROCESSOR_NUMBER
+    __initialize_struct
+
+    sizeof_WORD __add_struct_member
+    sizeof_BYTE __add_struct_member
+    sizeof_BYTE __add_struct_member
+
+    __end_struct
+end
 macro sizeof_PPROCESSOR_NUMBER  sizeof_ptr end
 
 //
@@ -173,7 +246,15 @@ macro sizeof_PPROCESSOR_NUMBER  sizeof_ptr end
 // thread.  Specifies the group number and the affinity within that group.
 //
 
-macro sizeof_GROUP_AFFINITY     16 end
+macro sizeof_GROUP_AFFINITY
+    __initialize_struct
+
+    sizeof_ULONG_PTR    __add_struct_member
+    sizeof_WORD         __add_struct_member
+    sizeof_WORD         __add_struct_member
+
+    __end_struct
+end
 macro sizeof_PGROUP_AFFINITY    sizeof_ptr end
 
 
@@ -200,13 +281,25 @@ macro sizeof_LANGID     sizeof_WORD end
 macro sizeof_COMPARTMENT_ID  sizeof_enum end
 macro sizeof_PCOMPARTMENT_ID sizeof_ptr end
 
+// ENUM DECLARATION
+macro UNSPECIFIED_COMPARTMENT_ID    0 end
+macro DEFAULT_COMPARTMENT_ID        1 end
+// END ENUM DECLARATION
+
 macro APPLICATION_ERROR_MASK       0x20000000 end
 macro ERROR_SEVERITY_SUCCESS       0x00000000 end
 macro ERROR_SEVERITY_INFORMATIONAL 0x40000000 end
 macro ERROR_SEVERITY_WARNING       0x80000000 end
 macro ERROR_SEVERITY_ERROR         0xC0000000 end
 
-macro sizeof_FLOAT128   16 end
+macro sizeof_FLOAT128
+    __initialize_struct
+
+    sizeof___int64  __add_struct_member
+    sizeof___int64  __add_struct_member
+
+    __end_struct
+end
 macro sizeof_PFLOAT128  sizeof_ptr end
 
 
@@ -1324,126 +1417,128 @@ macro SECURITY_TRUSTED_INSTALLER_RID5 2271478464 end
 macro sizeof_WELL_KNOWN_SID_TYPE sizeof_enum end
 
 // ENUM DECLARATION
-macro WELL_KNOWN_SID_TYPE_WinNullSid                                      0 end
-macro WELL_KNOWN_SID_TYPE_WinWorldSid                                     1 end
-macro WELL_KNOWN_SID_TYPE_WinLocalSid                                     2 end
-macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerSid                              3 end
-macro WELL_KNOWN_SID_TYPE_WinCreatorGroupSid                              4 end
-macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerServerSid                        5 end
-macro WELL_KNOWN_SID_TYPE_WinCreatorGroupServerSid                        6 end
-macro WELL_KNOWN_SID_TYPE_WinNtAuthoritySid                               7 end
-macro WELL_KNOWN_SID_TYPE_WinDialupSid                                    8 end
-macro WELL_KNOWN_SID_TYPE_WinNetworkSid                                   9 end
-macro WELL_KNOWN_SID_TYPE_WinBatchSid                                     10 end
-macro WELL_KNOWN_SID_TYPE_WinInteractiveSid                               11 end
-macro WELL_KNOWN_SID_TYPE_WinServiceSid                                   12 end
-macro WELL_KNOWN_SID_TYPE_WinAnonymousSid                                 13 end
-macro WELL_KNOWN_SID_TYPE_WinProxySid                                     14 end
-macro WELL_KNOWN_SID_TYPE_WinEnterpriseControllersSid                     15 end
-macro WELL_KNOWN_SID_TYPE_WinSelfSid                                      16 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticatedUserSid                         17 end
-macro WELL_KNOWN_SID_TYPE_WinRestrictedCodeSid                            18 end
-macro WELL_KNOWN_SID_TYPE_WinTerminalServerSid                            19 end
-macro WELL_KNOWN_SID_TYPE_WinRemoteLogonIdSid                             20 end
-macro WELL_KNOWN_SID_TYPE_WinLogonIdsSid                                  21 end
-macro WELL_KNOWN_SID_TYPE_WinLocalSystemSid                               22 end
-macro WELL_KNOWN_SID_TYPE_WinLocalServiceSid                              23 end
-macro WELL_KNOWN_SID_TYPE_WinNetworkServiceSid                            24 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinDomainSid                             25 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinAdministratorsSid                     26 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinUsersSid                              27 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinGuestsSid                             28 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinPowerUsersSid                         29 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinAccountOperatorsSid                   30 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinSystemOperatorsSid                    31 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinPrintOperatorsSid                     32 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinBackupOperatorsSid                    33 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinReplicatorSid                         34 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinPreWindows2000CompatibleAccessSid     35 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinRemoteDesktopUsersSid                 36 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinNetworkConfigurationOperatorsSid      37 end
-macro WELL_KNOWN_SID_TYPE_WinAccountAdministratorSid                      38 end
-macro WELL_KNOWN_SID_TYPE_WinAccountGuestSid                              39 end
-macro WELL_KNOWN_SID_TYPE_WinAccountKrbtgtSid                             40 end
-macro WELL_KNOWN_SID_TYPE_WinAccountDomainAdminsSid                       41 end
-macro WELL_KNOWN_SID_TYPE_WinAccountDomainUsersSid                        42 end
-macro WELL_KNOWN_SID_TYPE_WinAccountDomainGuestsSid                       43 end
-macro WELL_KNOWN_SID_TYPE_WinAccountComputersSid                          44 end
-macro WELL_KNOWN_SID_TYPE_WinAccountControllersSid                        45 end
-macro WELL_KNOWN_SID_TYPE_WinAccountCertAdminsSid                         46 end
-macro WELL_KNOWN_SID_TYPE_WinAccountSchemaAdminsSid                       47 end
-macro WELL_KNOWN_SID_TYPE_WinAccountEnterpriseAdminsSid                   48 end
-macro WELL_KNOWN_SID_TYPE_WinAccountPolicyAdminsSid                       49 end
-macro WELL_KNOWN_SID_TYPE_WinAccountRasAndIasServersSid                   50 end
-macro WELL_KNOWN_SID_TYPE_WinNTLMAuthenticationSid                        51 end
-macro WELL_KNOWN_SID_TYPE_WinDigestAuthenticationSid                      52 end
-macro WELL_KNOWN_SID_TYPE_WinSChannelAuthenticationSid                    53 end
-macro WELL_KNOWN_SID_TYPE_WinThisOrganizationSid                          54 end
-macro WELL_KNOWN_SID_TYPE_WinOtherOrganizationSid                         55 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinIncomingForestTrustBuildersSid        56 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinPerfMonitoringUsersSid                57 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinPerfLoggingUsersSid                   58 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinAuthorizationAccessSid                59 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinTerminalServerLicenseServersSid       60 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinDCOMUsersSid                          61 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinIUsersSid                             62 end
-macro WELL_KNOWN_SID_TYPE_WinIUserSid                                     63 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinCryptoOperatorsSid                    64 end
-macro WELL_KNOWN_SID_TYPE_WinUntrustedLabelSid                            65 end
-macro WELL_KNOWN_SID_TYPE_WinLowLabelSid                                  66 end
-macro WELL_KNOWN_SID_TYPE_WinMediumLabelSid                               67 end
-macro WELL_KNOWN_SID_TYPE_WinHighLabelSid                                 68 end
-macro WELL_KNOWN_SID_TYPE_WinSystemLabelSid                               69 end
-macro WELL_KNOWN_SID_TYPE_WinWriteRestrictedCodeSid                       70 end
-macro WELL_KNOWN_SID_TYPE_WinCreatorOwnerRightsSid                        71 end
-macro WELL_KNOWN_SID_TYPE_WinCacheablePrincipalsGroupSid                  72 end
-macro WELL_KNOWN_SID_TYPE_WinNonCacheablePrincipalsGroupSid               73 end
-macro WELL_KNOWN_SID_TYPE_WinEnterpriseReadonlyControllersSid             74 end
-macro WELL_KNOWN_SID_TYPE_WinAccountReadonlyControllersSid                75 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinEventLogReadersGroup                  76 end
-macro WELL_KNOWN_SID_TYPE_WinNewEnterpriseReadonlyControllersSid          77 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinCertSvcDComAccessGroup                78 end
-macro WELL_KNOWN_SID_TYPE_WinMediumPlusLabelSid                           79 end
-macro WELL_KNOWN_SID_TYPE_WinLocalLogonSid                                80 end
-macro WELL_KNOWN_SID_TYPE_WinConsoleLogonSid                              81 end
-macro WELL_KNOWN_SID_TYPE_WinThisOrganizationCertificateSid               82 end
-macro WELL_KNOWN_SID_TYPE_WinApplicationPackageAuthoritySid               83 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinAnyPackageSid                         84 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityInternetClientSid                  85 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityInternetClientServerSid            86 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityPrivateNetworkClientServerSid      87 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityPicturesLibrarySid                 88 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityVideosLibrarySid                   89 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityMusicLibrarySid                    90 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityDocumentsLibrarySid                91 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilitySharedUserCertificatesSid          92 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityEnterpriseAuthenticationSid        93 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityRemovableStorageSid                94 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSRemoteAccessServersSid             95 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSEndpointServersSid                 96 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinRDSManagementServersSid               97 end
-macro WELL_KNOWN_SID_TYPE_WinUserModeDriversSid                           98 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinHyperVAdminsSid                       99 end
-macro WELL_KNOWN_SID_TYPE_WinAccountCloneableControllersSid               100 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinAccessControlAssistanceOperatorsSid   101 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinRemoteManagementUsersSid              102 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationAuthorityAssertedSid           103 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationServiceAssertedSid             104 end
-macro WELL_KNOWN_SID_TYPE_WinLocalAccountSid                              105 end
-macro WELL_KNOWN_SID_TYPE_WinLocalAccountAndAdministratorSid              106 end
-macro WELL_KNOWN_SID_TYPE_WinAccountProtectedUsersSid                     107 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityAppointmentsSid                    108 end
-macro WELL_KNOWN_SID_TYPE_WinCapabilityContactsSid                        109 end
-macro WELL_KNOWN_SID_TYPE_WinAccountDefaultSystemManagedSid               110 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinDefaultSystemManagedGroupSid          111 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinStorageReplicaAdminsSid               112 end
-macro WELL_KNOWN_SID_TYPE_WinAccountKeyAdminsSid                          113 end
-macro WELL_KNOWN_SID_TYPE_WinAccountEnterpriseKeyAdminsSid                114 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyTrustSid                    115 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyPropertyMFASid              116 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationKeyPropertyAttestationSid      117 end
-macro WELL_KNOWN_SID_TYPE_WinAuthenticationFreshKeyAuthSid                118 end
-macro WELL_KNOWN_SID_TYPE_WinBuiltinDeviceOwnersSid                       119 end
+macro WinNullSid                                    0 end
+macro WinWorldSid                                   1 end
+macro WinLocalSid                                   2 end
+macro WinCreatorOwnerSid                            3 end
+macro WinCreatorGroupSid                            4 end
+macro WinCreatorOwnerServerSid                      5 end
+macro WinCreatorGroupServerSid                      6 end
+macro WinNtAuthoritySid                             7 end
+macro WinDialupSid                                  8 end
+macro WinNetworkSid                                 9 end
+macro WinBatchSid                                   10 end
+macro WinInteractiveSid                             11 end
+macro WinServiceSid                                 12 end
+macro WinAnonymousSid                               13 end
+macro WinProxySid                                   14 end
+macro WinEnterpriseControllersSid                   15 end
+macro WinSelfSid                                    16 end
+macro WinAuthenticatedUserSid                       17 end
+macro WinRestrictedCodeSid                          18 end
+macro WinTerminalServerSid                          19 end
+macro WinRemoteLogonIdSid                           20 end
+macro WinLogonIdsSid                                21 end
+macro WinLocalSystemSid                             22 end
+macro WinLocalServiceSid                            23 end
+macro WinNetworkServiceSid                          24 end
+macro WinBuiltinDomainSid                           25 end
+macro WinBuiltinAdministratorsSid                   26 end
+macro WinBuiltinUsersSid                            27 end
+macro WinBuiltinGuestsSid                           28 end
+macro WinBuiltinPowerUsersSid                       29 end
+macro WinBuiltinAccountOperatorsSid                 30 end
+macro WinBuiltinSystemOperatorsSid                  31 end
+macro WinBuiltinPrintOperatorsSid                   32 end
+macro WinBuiltinBackupOperatorsSid                  33 end
+macro WinBuiltinReplicatorSid                       34 end
+macro WinBuiltinPreWindows2000CompatibleAccessSid   35 end
+macro WinBuiltinRemoteDesktopUsersSid               36 end
+macro WinBuiltinNetworkConfigurationOperatorsSid    37 end
+macro WinAccountAdministratorSid                    38 end
+macro WinAccountGuestSid                            39 end
+macro WinAccountKrbtgtSid                           40 end
+macro WinAccountDomainAdminsSid                     41 end
+macro WinAccountDomainUsersSid                      42 end
+macro WinAccountDomainGuestsSid                     43 end
+macro WinAccountComputersSid                        44 end
+macro WinAccountControllersSid                      45 end
+macro WinAccountCertAdminsSid                       46 end
+macro WinAccountSchemaAdminsSid                     47 end
+macro WinAccountEnterpriseAdminsSid                 48 end
+macro WinAccountPolicyAdminsSid                     49 end
+macro WinAccountRasAndIasServersSid                 50 end
+macro WinNTLMAuthenticationSid                      51 end
+macro WinDigestAuthenticationSid                    52 end
+macro WinSChannelAuthenticationSid                  53 end
+macro WinThisOrganizationSid                        54 end
+macro WinOtherOrganizationSid                       55 end
+macro WinBuiltinIncomingForestTrustBuildersSid      56 end
+macro WinBuiltinPerfMonitoringUsersSid              57 end
+macro WinBuiltinPerfLoggingUsersSid                 58 end
+macro WinBuiltinAuthorizationAccessSid              59 end
+macro WinBuiltinTerminalServerLicenseServersSid     60 end
+macro WinBuiltinDCOMUsersSid                        61 end
+macro WinBuiltinIUsersSid                           62 end
+macro WinIUserSid                                   63 end
+macro WinBuiltinCryptoOperatorsSid                  64 end
+macro WinUntrustedLabelSid                          65 end
+macro WinLowLabelSid                                66 end
+macro WinMediumLabelSid                             67 end
+macro WinHighLabelSid                               68 end
+macro WinSystemLabelSid                             69 end
+macro WinWriteRestrictedCodeSid                     70 end
+macro WinCreatorOwnerRightsSid                      71 end
+macro WinCacheablePrincipalsGroupSid                72 end
+macro WinNonCacheablePrincipalsGroupSid             73 end
+macro WinEnterpriseReadonlyControllersSid           74 end
+macro WinAccountReadonlyControllersSid              75 end
+macro WinBuiltinEventLogReadersGroup                76 end
+macro WinNewEnterpriseReadonlyControllersSid        77 end
+macro WinBuiltinCertSvcDComAccessGroup              78 end
+macro WinMediumPlusLabelSid                         79 end
+macro WinLocalLogonSid                              80 end
+macro WinConsoleLogonSid                            81 end
+macro WinThisOrganizationCertificateSid             82 end
+macro WinApplicationPackageAuthoritySid             83 end
+macro WinBuiltinAnyPackageSid                       84 end
+macro WinCapabilityInternetClientSid                85 end
+macro WinCapabilityInternetClientServerSid          86 end
+macro WinCapabilityPrivateNetworkClientServerSid    87 end
+macro WinCapabilityPicturesLibrarySid               88 end
+macro WinCapabilityVideosLibrarySid                 89 end
+macro WinCapabilityMusicLibrarySid                  90 end
+macro WinCapabilityDocumentsLibrarySid              91 end
+macro WinCapabilitySharedUserCertificatesSid        92 end
+macro WinCapabilityEnterpriseAuthenticationSid      93 end
+macro WinCapabilityRemovableStorageSid              94 end
+macro WinBuiltinRDSRemoteAccessServersSid           95 end
+macro WinBuiltinRDSEndpointServersSid               96 end
+macro WinBuiltinRDSManagementServersSid             97 end
+macro WinUserModeDriversSid                         98 end
+macro WinBuiltinHyperVAdminsSid                     99 end
+macro WinAccountCloneableControllersSid             100 end
+macro WinBuiltinAccessControlAssistanceOperatorsSid 101 end
+macro WinBuiltinRemoteManagementUsersSid            102 end
+macro WinAuthenticationAuthorityAssertedSid         103 end
+macro WinAuthenticationServiceAssertedSid           104 end
+macro WinLocalAccountSid                            105 end
+macro WinLocalAccountAndAdministratorSid            106 end
+macro WinAccountProtectedUsersSid                   107 end
+macro WinCapabilityAppointmentsSid                  108 end
+macro WinCapabilityContactsSid                      109 end
+macro WinAccountDefaultSystemManagedSid             110 end
+macro WinBuiltinDefaultSystemManagedGroupSid        111 end
+macro WinBuiltinStorageReplicaAdminsSid             112 end
+macro WinAccountKeyAdminsSid                        113 end
+macro WinAccountEnterpriseKeyAdminsSid              114 end
+macro WinAuthenticationKeyTrustSid                  115 end
+macro WinAuthenticationKeyPropertyMFASid            116 end
+macro WinAuthenticationKeyPropertyAttestationSid    117 end
+macro WinAuthenticationFreshKeyAuthSid              118 end
+macro WinBuiltinDeviceOwnersSid                     119 end
+// END ENUM DECLARATION
+
 
 //
 // Allocate the System Luid. The first 1000 LUIDs are reserved.
@@ -1783,8 +1878,9 @@ macro ACE_INHERITED_OBJECT_TYPE_PRESENT 0x2 end
 macro sizeof_ACL_INFORMATION_CLASS sizeof_enum end
 
 // ENUM DECLARATION
-macro ACL_INFORMATION_CLASS_AclRevisionInformation  1 end
-macro ACL_INFORMATION_CLASS_AclSizeInformation      2 end
+macro AclRevisionInformation    1 end
+macro AclSizeInformation        2 end
+// END ENUM DECLARATION
 
 //
 // This record is returned/sent if the user is requesting/setting the
@@ -1918,4 +2014,510 @@ macro SE_SELF_RELATIVE          0x8000 end
 //
 //
 
-// Continue at line 10198, <winnt.h>
+macro sizeof_SECURITY_DESCRIPTOR_RELATIVE   20 end
+macro sizeof_PISECURITY_DESCRIPTOR_RELATIVE sizeof_ptr end
+
+//
+// sizeof_SECURITY_DESCRIPTOR was already defined
+// above here so that a macro that uses it doesn't
+// get an undefined reference.
+//
+
+macro sizeof_PISECURITY_DESCRIPTOR  sizeof_ptr end
+
+macro sizeof_SECURITY_OBJECT_AI_PARAMS  8 end
+macro sizeof_PSECURITY_OBJECT_AI_PARAMS sizeof_ptr end
+
+
+// end_ntifs
+
+// Where:
+//
+//     Revision - Contains the revision level of the security
+//         descriptor.  This allows this structure to be passed between
+//         systems or stored on disk even though it is expected to
+//         change in the future.
+//
+//     Control - A set of flags which qualify the meaning of the
+//         security descriptor or individual fields of the security
+//         descriptor.
+//
+//     Owner - is a pointer to an SID representing an object's owner.
+//         If this field is null, then no owner SID is present in the
+//         security descriptor.  If the security descriptor is in
+//         self-relative form, then this field contains an offset to
+//         the SID, rather than a pointer.
+//
+//     Group - is a pointer to an SID representing an object's primary
+//         group.  If this field is null, then no primary group SID is
+//         present in the security descriptor.  If the security descriptor
+//         is in self-relative form, then this field contains an offset to
+//         the SID, rather than a pointer.
+//
+//     Sacl - is a pointer to a system ACL.  This field value is only
+//         valid if the DaclPresent control flag is set.  If the
+//         SaclPresent flag is set and this field is null, then a null
+//         ACL  is specified.  If the security descriptor is in
+//         self-relative form, then this field contains an offset to
+//         the ACL, rather than a pointer.
+//
+//     Dacl - is a pointer to a discretionary ACL.  This field value is
+//         only valid if the DaclPresent control flag is set.  If the
+//         DaclPresent flag is set and this field is null, then a null
+//         ACL (unconditionally granting access) is specified.  If the
+//         security descriptor is in self-relative form, then this field
+//         contains an offset to the ACL, rather than a pointer.
+//
+
+
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//               Object Type list for AccessCheckByType               //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+macro sizeof_OBJECT_TYPE_LIST   16 end
+macro sizeof_POBJECT_TYPE_LIST  sizeof_ptr end
+
+//
+// DS values for Level
+//
+
+macro ACCESS_OBJECT_GUID        0 end
+macro ACCESS_PROPERTY_SET_GUID  1 end
+macro ACCESS_PROPERTY_GUID      2 end
+
+macro ACCESS_MAX_LEVEL          4 end
+
+//
+// Parameters to NtAccessCheckByTypeAndAditAlarm
+//
+
+macro sizeof_AUDIT_EVENT_TYPE   4 end
+macro sizeof_PAUDIT_EVENT_TYPE  sizeof_ptr end
+
+macro AUDIT_ALLOW_NO_PRIVILEGE  0x1 end
+
+//
+// DS values for Source and ObjectTypeName
+//
+
+macro ACCESS_DS_SOURCE "DS" end
+macro ACCESS_DS_OBJECT_TYPE_NAME "Directory Service Object" end
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//               Privilege Related Data Structures                    //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+// end_ntifs
+// begin_wdm
+//
+// Privilege attributes.
+//
+
+macro SE_PRIVILEGE_ENABLED_BY_DEFAULT   0x00000001 end
+macro SE_PRIVILEGE_ENABLED              0x00000002 end
+macro SE_PRIVILEGE_REMOVED              0X00000004 end
+macro SE_PRIVILEGE_USED_FOR_ACCESS      0x80000000 end
+
+macro SE_PRIVILEGE_VALID_ATTRIBUTES
+    SE_PRIVILEGE_ENABLED_BY_DEFAULT SE_PRIVILEGE_ENABLED    bor
+    SE_PRIVILEGE_REMOVED                                    bor
+    SE_PRIVILEGE_USED_FOR_ACCESS                            bor
+end
+
+
+//
+// Privilege Set Control flags.
+//
+
+macro PRIVILEGE_SET_ALL_NECESSARY 1 end
+
+//
+//  Privilege Set - This is defined for a privilege set of one.
+//                  If more than one privilege is needed, then this structure
+//                  will need to be allocated with more space.
+//
+
+macro sizeof_PRIVILEGE_SET  20 end   
+macro sizeof_PPRIVILEGE_SET sizeof_ptr end  
+
+
+//
+// Values for different access granted\denied reasons:
+// AccessReasonAceN = AccessReasonAce + N.
+// AccessReasonPrivilegeN = AccessReasonPrivilege + N.
+//
+
+macro ACCESS_REASON_TYPE_MASK 0x00ff0000 end
+macro ACCESS_REASON_DATA_MASK 0x0000ffff end
+
+macro ACCESS_REASON_STAGING_MASK 0x80000000 end
+macro ACCESS_REASON_EXDATA_MASK  0x7f000000 end
+
+
+macro sizeof_ACCESS_REASON_TYPE sizeof_enum end
+
+// ENUM DECLARATION
+macro AccessReasonNone                      0x00000000 end   // Indicate no reason for the bit. The bit may not be checked, or just no known reason.
+
+//
+// The lowest 2 bytes store the index of the ACE that grant/deny this bit.
+// If the corresponding access mask is zero, then it is deny ACE; otherwise,
+// it is allow ACE.
+//
+macro AccessReasonAllowedAce                0x00010000 end   // Granted a permission.
+macro AccessReasonDeniedAce                 0x00020000 end   // Denied a permission.
+macro AccessReasonAllowedParentAce          0x00030000 end   // Granted a permission from parent ACE
+macro AccessReasonDeniedParentAce           0x00040000 end   // Denied a permission from parent ACE
+macro AccessReasonNotGrantedByCape          0x00050000 end   // A CAPE didn't grant the permission
+macro AccessReasonNotGrantedByParentCape    0x00060000 end   // A CAPE from the parent's SD didn't grant the permission
+macro AccessReasonNotGrantedToAppContainer  0x00070000 end   // This is an AppContainer and no ACE granted the permission.
+macro AccessReasonMissingPrivilege          0x00100000 end
+macro AccessReasonFromPrivilege             0x00200000 end
+macro AccessReasonIntegrityLevel            0x00300000 end
+macro AccessReasonOwnership                 0x00400000 end
+macro AccessReasonNullDacl                  0x00500000 end
+macro AccessReasonEmptyDacl                 0x00600000 end
+macro AccessReasonNoSD                      0x00700000 end
+macro AccessReasonNoGrant                   0x00800000 end   // this access bit is not granted by any ACE.
+macro AccessReasonTrustLabel                0x00900000 end   // The trust label ACE did not grant this access.
+macro AccessReasonFilterAce                 0x00a00000 end   // The filtering ACE did not grant this access
+// END ENUM DECLARATION
+
+
+//
+// Structure to hold access denied\granted reason for every bit of ACCESS_MASK.
+// There are 32-bits in ACCESS_MASK and only 27-bits are actually valid on
+// return from AccessCheck because MAXIMUM_ALLOWED, GENERIC_READ,
+// GENERIC_WRITE, GENERIC_EXECUTE, and GENERIC_ALL are never returned.
+//
+// The content in Data fields depends on the Access Reason, for example,
+// if the reason is AccessReasonAce, the Data will be the ACE ID.
+// If there are more than one reason (more than one bit is set), the array size
+// of the Data is equal to the number of bits set (or number of reasons).
+// The Data could be null for a particular reason.
+//
+
+macro sizeof_ACCESS_REASON  sizeof_DWORD end
+
+macro sizeof_ACCESS_REASONS     128 end
+macro sizeof_PACCESS_REASONS    sizeof_ptr end
+
+
+/*
+The following data structures are defined to consolidate various falvors of
+access check functions. In particular for Windows 7, the new access check
+function will enable security attribute check, plus returning the reason
+for a access check result.
+
+The new access check function based on these data structures will
+form the foundation to reimplement other flavors of access check
+functions.
+
+*/
+
+//
+// Structure to hold pointer to security descriptor and its unique id, which
+// can be used for caching access check results.
+// (NOTE NOTE) The cache key can be constructed by SecurityDescriptorId, Token and
+// PrincipalSelfSid. Watch how GenericMapping affects the cache results.
+//
+
+macro SE_SECURITY_DESCRIPTOR_FLAG_NO_OWNER_ACE          0x00000001 end
+macro SE_SECURITY_DESCRIPTOR_FLAG_NO_LABEL_ACE          0x00000002 end
+macro SE_SECURITY_DESCRIPTOR_FLAG_NO_ACCESS_FILTER_ACE  0x00000004 end
+macro SE_SECURITY_DESCRIPTOR_VALID_FLAGS                0x00000007 end
+
+macro SE_ACCESS_CHECK_FLAG_NO_LEARNING_MODE_LOGGING     0x00000008 end
+macro SE_ACCESS_CHECK_VALID_FLAGS                       0x00000008 end
+
+
+macro sizeof_SE_SECURITY_DESCRIPTOR     16 end
+macro sizeof_PSE_SECURITY_DESCRIPTOR    sizeof_ptr end
+
+macro sizeof_SE_ACCESS_REQUEST  56 end
+macro sizeof_PSE_ACCESS_REQUEST sizeof_ptr end
+
+macro sizeof_SE_ACCESS_REPLY    40 end
+macro sizeof_PSE_ACCESS_REPLY   sizeof_ptr end
+
+
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//               NT Defined Privileges                                //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+macro SE_CREATE_TOKEN_NAME                      "SeCreateTokenPrivilege" end
+macro SE_ASSIGNPRIMARYTOKEN_NAME                "SeAssignPrimaryTokenPrivilege" end
+macro SE_LOCK_MEMORY_NAME                       "SeLockMemoryPrivilege" end
+macro SE_INCREASE_QUOTA_NAME                    "SeIncreaseQuotaPrivilege" end
+macro SE_UNSOLICITED_INPUT_NAME                 "SeUnsolicitedInputPrivilege" end
+macro SE_MACHINE_ACCOUNT_NAME                   "SeMachineAccountPrivilege" end
+macro SE_TCB_NAME                               "SeTcbPrivilege" end
+macro SE_SECURITY_NAME                          "SeSecurityPrivilege" end
+macro SE_TAKE_OWNERSHIP_NAME                    "SeTakeOwnershipPrivilege" end
+macro SE_LOAD_DRIVER_NAME                       "SeLoadDriverPrivilege" end
+macro SE_SYSTEM_PROFILE_NAME                    "SeSystemProfilePrivilege" end
+macro SE_SYSTEMTIME_NAME                        "SeSystemtimePrivilege" end
+macro SE_PROF_SINGLE_PROCESS_NAME               "SeProfileSingleProcessPrivilege" end
+macro SE_INC_BASE_PRIORITY_NAME                 "SeIncreaseBasePriorityPrivilege" end
+macro SE_CREATE_PAGEFILE_NAME                   "SeCreatePagefilePrivilege" end
+macro SE_CREATE_PERMANENT_NAME                  "SeCreatePermanentPrivilege" end
+macro SE_BACKUP_NAME                            "SeBackupPrivilege" end
+macro SE_RESTORE_NAME                           "SeRestorePrivilege" end
+macro SE_SHUTDOWN_NAME                          "SeShutdownPrivilege" end
+macro SE_DEBUG_NAME                             "SeDebugPrivilege" end
+macro SE_AUDIT_NAME                             "SeAuditPrivilege" end
+macro SE_SYSTEM_ENVIRONMENT_NAME                "SeSystemEnvironmentPrivilege" end
+macro SE_CHANGE_NOTIFY_NAME                     "SeChangeNotifyPrivilege" end
+macro SE_REMOTE_SHUTDOWN_NAME                   "SeRemoteShutdownPrivilege" end
+macro SE_UNDOCK_NAME                            "SeUndockPrivilege" end
+macro SE_SYNC_AGENT_NAME                        "SeSyncAgentPrivilege" end
+macro SE_ENABLE_DELEGATION_NAME                 "SeEnableDelegationPrivilege" end
+macro SE_MANAGE_VOLUME_NAME                     "SeManageVolumePrivilege" end
+macro SE_IMPERSONATE_NAME                       "SeImpersonatePrivilege" end
+macro SE_CREATE_GLOBAL_NAME                     "SeCreateGlobalPrivilege" end
+macro SE_TRUSTED_CREDMAN_ACCESS_NAME            "SeTrustedCredManAccessPrivilege" end
+macro SE_RELABEL_NAME                           "SeRelabelPrivilege" end
+macro SE_INC_WORKING_SET_NAME                   "SeIncreaseWorkingSetPrivilege" end
+macro SE_TIME_ZONE_NAME                         "SeTimeZonePrivilege" end
+macro SE_CREATE_SYMBOLIC_LINK_NAME              "SeCreateSymbolicLinkPrivilege" end
+macro SE_DELEGATE_SESSION_USER_IMPERSONATE_NAME "SeDelegateSessionUserImpersonatePrivilege" end
+
+// begin_ntosifs
+
+//
+// List Of String Capabilities.
+//
+
+macro SE_ACTIVATE_AS_USER_CAPABILITY "activateAsUser" end
+macro SE_CONSTRAINED_IMPERSONATION_CAPABILITY "constrainedImpersonation" end
+macro SE_SESSION_IMPERSONATION_CAPABILITY "sessionImpersonation" end
+macro SE_MUMA_CAPABILITY "muma" end
+macro SE_DEVELOPMENT_MODE_NETWORK_CAPABILITY "developmentModeNetwork" end
+
+// end_ntosifs
+
+
+//
+// Security Quality Of Service.
+//
+// begin_wdm
+//
+// Impersonation Level
+//
+// Impersonation level is represented by a pair of bits in Windows.
+// If a new impersonation level is added or lowest value is changed from
+// 0 to something else, fix the Windows CreateFile call.
+//
+
+macro sizeof_SECURITY_IMPERSONATION_LEVEL   4 end
+macro sizeof_PSECURITY_IMPERSONATION_LEVEL  sizeof_ptr end
+
+// ENUM DECLARATION
+macro SecurityAnonymous         0 end
+macro SecurityIdentification    1 end
+macro SecurityImpersonation     2 end
+macro SecurityDelegation        3 end
+// END ENUM DECLARATION
+
+
+macro SECURITY_MAX_IMPERSONATION_LEVEL  SecurityDelegation end
+macro SECURITY_MIN_IMPERSONATION_LEVEL  SecurityAnonymous end
+macro DEFAULT_IMPERSONATION_LEVEL       SecurityImpersonation end
+
+//macro VALID_IMPERSONATION_LEVEL(L)
+//    L 1 add SECURITY_MIN_IMPERSONATION_LEVEL >
+//    L 1 sub SECURITY_MAX_IMPERSONATION_LEVEL <
+//    add 2 =
+//end
+
+//
+// Token Object Definitions.
+//
+
+// begin_access
+
+//
+// Token Specific Access Rights.
+//
+
+macro TOKEN_ASSIGN_PRIMARY      0x0001 end
+macro TOKEN_DUPLICATE           0x0002 end
+macro TOKEN_IMPERSONATE         0x0004 end
+macro TOKEN_QUERY               0x0008 end
+macro TOKEN_QUERY_SOURCE        0x0010 end
+macro TOKEN_ADJUST_PRIVILEGES   0x0020 end
+macro TOKEN_ADJUST_GROUPS       0x0040 end
+macro TOKEN_ADJUST_DEFAULT      0x0080 end
+macro TOKEN_ADJUST_SESSIONID    0x0100 end
+
+macro TOKEN_ALL_ACCESS_P
+    STANDARD_RIGHTS_REQUIRED TOKEN_ASSIGN_PRIMARY   bor
+    TOKEN_DUPLICATE                                 bor
+    TOKEN_IMPERSONATE                               bor
+    TOKEN_QUERY                                     bor
+    TOKEN_QUERY_SOURCE                              bor
+    TOKEN_ADJUST_PRIVILEGES                         bor
+    TOKEN_ADJUST_GROUPS                             bor
+    TOKEN_ADJUST_DEFAULT                            bor
+end
+
+macro TOKEN_ALL_ACCESS
+    TOKEN_ALL_ACCESS_P TOKEN_ADJUST_SESSIONID bor
+end
+
+macro TOKEN_WRITE
+    STANDARD_RIGHTS_WRITE TOKEN_ADJUST_PRIVILEGES   bor
+    TOKEN_ADJUST_GROUPS                             bor
+    TOKEN_ADJUST_DEFAULT                            bor
+end
+
+macro TOKEN_EXECUTE STANDARD_RIGHTS_EXECUTE end
+
+macro TOKEN_TRUST_CONSTRAINT_MASK
+    STANDARD_RIGHTS_READ TOKEN_QUERY    bor
+    TOKEN_QUERY_SOURCE                  bor
+end
+
+macro TOKEN_ACCESS_PSEUDO_HANDLE_WIN8
+    TOKEN_QUERY TOKEN_QUERY_SOURCE bor
+end
+
+macro TOKEN_ACCESS_PSEUDO_HANDLE TOKEN_ACCESS_PSEUDO_HANDLE_WIN8 end
+
+//
+// end_access
+//
+//
+// Token Types
+//
+
+macro sizeof_TOKEN_TYPE     sizeof_enum end
+macro sizeof_PTOKEN_TYPE    sizeof_ptr end
+
+// ENUM DECLARATION
+macro TokenPrimary       1 end
+macro TokenImpersonation 2 end
+// END ENUM DECLARATION
+
+
+macro sizeof_TOKEN_ELEVATION_TYPE   sizeof_enum end
+macro sizeof_PTOKEN_ELEVATION_TYPE  sizeof_ptr end
+
+// ENUM DECLARATION
+macro TokenElevationTypeDefault 1 end
+macro TokenElevationTypeFull    2 end
+macro TokenElevationTypeLimited 3 end
+// END ENUM DECLARATION
+
+//
+// Token Information Classes.
+//
+
+macro sizeof_TOKEN_INFORMATION_CLASS    sizeof_enum end
+macro sizeof_PTOKEN_INFORMATION_CLASS   sizeof_ptr end
+
+// ENUM DECLARATION
+macro TokenUser                               1 end
+macro TokenGroups                             2 end
+macro TokenPrivileges                         3 end
+macro TokenOwner                              4 end
+macro TokenPrimaryGroup                       5 end
+macro TokenDefaultDacl                        6 end
+macro TokenSource                             7 end
+macro TokenType                               8 end
+macro TokenImpersonationLevel                 9 end
+macro TokenStatistics                         10 end
+macro TokenRestrictedSids                     11 end
+macro TokenSessionId                          12 end
+macro TokenGroupsAndPrivileges                13 end
+macro TokenSessionReference                   14 end
+macro TokenSandBoxInert                       15 end
+macro TokenAuditPolicy                        16 end
+macro TokenOrigin                             17 end
+macro TokenElevationType                      18 end
+macro TokenLinkedToken                        19 end
+macro TokenElevation                          20 end
+macro TokenHasRestrictions                    21 end
+macro TokenAccessInformation                  22 end
+macro TokenVirtualizationAllowed              23 end
+macro TokenVirtualizationEnabled              24 end
+macro TokenIntegrityLevel                     25 end
+macro TokenUIAccess                           26 end
+macro TokenMandatoryPolicy                    27 end
+macro TokenLogonSid                           28 end
+macro TokenIsAppContainer                     29 end
+macro TokenCapabilities                       30 end
+macro TokenAppContainerSid                    31 end
+macro TokenAppContainerNumber                 32 end
+macro TokenUserClaimAttributes                33 end
+macro TokenDeviceClaimAttributes              34 end
+macro TokenRestrictedUserClaimAttributes      35 end
+macro TokenRestrictedDeviceClaimAttributes    36 end
+macro TokenDeviceGroups                       37 end
+macro TokenRestrictedDeviceGroups             38 end
+macro TokenSecurityAttributes                 39 end
+macro TokenIsRestricted                       40 end
+macro TokenProcessTrustLevel                  41 end
+macro TokenPrivateNameSpace                   42 end
+macro TokenSingletonAttributes                43 end
+macro TokenBnoIsolation                       44 end
+macro TokenChildProcessFlags                  45 end
+macro TokenIsLessPrivilegedAppContainer       46 end
+macro TokenIsSandboxed                        47 end
+macro TokenOriginatingProcessTrustLevel       48 end
+macro MaxTokenInfoClass                       49 end // MaxTokenInfoClass should always be the last enum
+// END ENUM DECLARATION
+
+//
+// Token information class structures
+//
+
+macro sizeof_TOKEN_USER     4 end
+macro sizeof_PTOKEN_USER    sizeof_ptr end
+
+macro sizeof_SE_TOKEN_USER  88 end
+macro sizeof_PSE_TOKEN_USER sizeof_ptr end
+
+macro TOKEN_USER_MAX_SIZE   sizeof_TOKEN_USER SECURITY_MAX_SID_SIZE mul end
+
+
+macro sizeof_TOKEN_GROUPS   24 end
+macro sizeof_PTOKEN_GROUPS  sizeof_ptr end
+
+macro sizeof_TOKEN_PRIVILEGES   16 end
+macro sizeof_PTOKEN_PRIVILEGES  sizeof_ptr end
+
+macro sizeof_TOKEN_OWNER    8 end
+macro sizeof_PTOKEN_OWNER   sizeof_ptr end
+
+macro TOKEN_OWNER_MAX_SIZE  sizeof_TOKEN_OWNER SECURITY_MAX_SID_SIZE add end
+
+macro sizeof_TOKEN_PRIMARY_GROUP    8 end
+macro sizeof_PTOKEN_PRIMARY_GROUP   sizeof_ptr end
+
+macro sizeof_TOKEN_DEFAULT_DACL     8 end
+macro sizeof_PTOKEN_DEFAULT_DACL    sizeof_ptr end
+
+macro sizeof_TOKEN_USER_CLAIMS  8 end
+macro sizeof_PTOKEN_USER_CLAIMS sizeof_ptr end
+
+macro sizeof_TOKEN_GROUPS_AND_PRIVILEGES    56 end
+macro sizeof_PTOKEN_GROUPS_AND_PRIVILEGES   sizeof_ptr end
+
+macro sizeof_TOKEN_LINKED_TOKEN     8 end
+macro sizeof_PTOKEN_LINKED_TOKEN    sizeof_ptr end
+
+macro sizeof_TOKEN_ELEVATION    4 end
+macro sizeof_PTOKEN_ELEVATION   sizeof_ptr end
+
+macro sizeof_TOKEN_MANDATORY_LABEL  16 end
+macro sizeof_PTOKEN_MANDATORY_LABEL sizeof_ptr end
+
+// Continue at line 10856, <winnt.h>

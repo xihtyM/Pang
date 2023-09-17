@@ -87,11 +87,11 @@ class TokenType(Enum):
 
     # Bitwise operators
     EXCOR = auto() #
-    BITOR = auto() #
+    BITOR = auto()
     BITAND = auto()
     BITNOT = auto()
-    LSHIFT = auto()
-    RSHIFT = auto()
+    LSHIFT = auto() #
+    RSHIFT = auto() #
 
     # Preprocessor / control flow
     MACRO = auto()
@@ -113,23 +113,24 @@ class TokenType(Enum):
     ADD = auto()
     MUL = auto()
     DIV = auto() #
-    MOD = auto() #
     IADD = auto()
     ISUB = auto()
     IMUL = auto()
     IDIV = auto() #
     IMOD = auto() #
+    DIVMOD = auto() #
 
     # Stack operations
     DUP = auto()
     SWAP = auto()
     DROP = auto()
+    OVER = auto()
 
     # Conditionals
-    EQUAL = auto() #
-    NOT_EQUAL = auto() #
-    GREATER_THAN = auto() #
-    SMALLER_THAN = auto() #
+    EQUAL = auto()
+    NOT_EQUAL = auto()
+    GREATER_THAN = auto()
+    SMALLER_THAN = auto()
     
     # Interaction with c functions or windows api
     CALL = auto()
@@ -175,7 +176,6 @@ keyword_map = {
     "mul": TokenType.MUL,
     "dup": TokenType.DUP,
     "div": TokenType.DIV,
-    "mod": TokenType.MOD,
     "iadd": TokenType.IADD,
     "isub": TokenType.ISUB,
     "imul": TokenType.IMUL,
@@ -183,8 +183,10 @@ keyword_map = {
     "imod": TokenType.IMOD,
     "drop": TokenType.DROP,
     "swap": TokenType.SWAP,
+    "over": TokenType.OVER,
     "apply": TokenType.APPLY,
     "quote": TokenType.QUOTE,
+    "divmod": TokenType.DIVMOD,
     
     "macro": TokenType.MACRO,
     "end": TokenType.END,

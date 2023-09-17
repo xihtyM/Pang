@@ -1,0 +1,59 @@
+include 'types.pang'
+
+// loop over items on stack until 0
+// dup the maximum value onto the top
+macro max
+    // START: array
+    dup // save array
+
+    // array, max, ptr(array[1]) -> skip first one as it is stored originally in max
+    dup apply sizeof_intmax_t swap 8 sub
+
+    while dup apply sizeof_intmax_t do
+        // array, max, ptr(array[x])
+        dup apply sizeof_intmax_t // get value
+
+        // array, max, ptr(array[x]), array[x]                    --> Start
+        // array, max, array[x], ptr(array[x])                    --> swap !
+        // array, ptr(array[x]), array[x], max                    --> over !
+        // array, ptr(array[x]), array[x], max, max               --> dup  !
+        // array, ptr(array[x]), max, max, array[x]               --> over !
+        // array, ptr(array[x]), max, max, array[x], array[x]    --> dup  !
+        // array, ptr(array[x]), max, array[x], array[x], max    --> over !
+        swap over dup over dup over
+
+        > if // if it is the largest number
+            // START: array, ptr(array[-x]), max, array[-x]
+            // END: array, array[-x] (new max), ptr(array[-x])
+            over swap drop
+        else // otherwise cleanup stack for next iteration
+            // START: array, ptr(array[-x]), max, array[-x]
+            // END: array, max, ptr(array[-x])
+            swap over swap drop
+        end
+
+        8 sub // get next value
+    end
+
+    // CLEANUP: array, ..., max, ptr(array + len(array))
+    drop
+
+    // END: array, max
+end
+
+macro sum
+    // START: array
+    dup
+
+    0 swap // initialize counter
+
+    while dup apply sizeof_intmax_t do
+        dup apply sizeof_intmax_t swap over add
+        swap 8 sub
+    end
+    
+    // CLEANUP: 0 (null terminator), counter
+    drop
+
+    // END: counter
+end

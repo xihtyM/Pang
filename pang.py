@@ -9,7 +9,7 @@ def remove_prev_2(toks: list[Token]):
         
         if tok.typ in (TokenType.INT, TokenType.ADD,
                        TokenType.SUB, TokenType.MUL,
-                       TokenType.DIV, TokenType.MOD,
+                       TokenType.DIV, TokenType.DIVMOD,
                        TokenType.DUP):
             indexes.append(index)
     
@@ -104,6 +104,24 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
                     new_toks.pop()
                     remove_prev_2(new_toks)
                     new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.EQUAL:
+                if len(stack) >= 2:
+                    stack.append(int(stack.pop() == stack.pop()))
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.NOT_EQUAL:
+                if len(stack) >= 2:
+                    stack.append(int(stack.pop() != stack.pop()))
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
+            case TokenType.BITOR:
+                if len(stack) >= 2:
+                    stack.append(stack.pop() | stack.pop())
+                    new_toks.pop()
+                    remove_prev_2(new_toks)
+                    new_toks.append(Token(TokenType.INT, "", stack[-1], tok.filename, tok.ln))
             case TokenType.DROP:
                 if stack:
                     stack.pop()
@@ -141,10 +159,10 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
         out += "    ; %s - \"%s\" line %d\n" % (tok.typ._name_, tok.filename, tok.ln)
         match tok.typ:
             case TokenType.INT:
-                if tok.value >= 1<<64:
-                    Croak(ErrorType.IntegerTooLarge, "integer too large to push to the stack, must be a 64 bit integer.")
+                if tok.value >= 1<<63:
+                    Croak(ErrorType.IntegerTooLarge, "integer too large to push to the stack, must be a 64 bit signed integer.")
                 
-                if tok.value >= 1<<32:
+                if tok.value >= 1<<31:
                     out += "    mov     rax, %d\n" % tok.value
                     out += "    push    rax\n\n"
                 else:
@@ -152,7 +170,7 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
             case TokenType.STR:
                 out += "    lea     rax, [string_%d]\n" % len(strings)
                 out += "    push    rax\n\n"
-                strings.append(tok.value)
+                strings.append(tok.value + "\x00")
             case TokenType.ADD:
                 out += "    pop     rax\n"
                 out += "    add     qword [rsp], rax\n\n"
@@ -209,6 +227,17 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
             case TokenType.BITOR:
                 out += "    pop     rax\n"
                 out += "    or      qword [rsp], rax\n\n"
+            case TokenType.OVER:
+                out += "    pop     rax\n"
+                out += "    xchg    qword [rsp + 8], rax\n"
+                out += "    push    rax\n\n"
+            case TokenType.DIVMOD:
+                out += "    pop     rcx\n"
+                out += "    pop     rax\n"
+                out += "    cqo\n"
+                out += "    idiv    rcx\n"
+                out += "    push    rax\n"
+                out += "    push    rdx\n\n"
             case TokenType.EQUAL:
                 out += "    pop     rbx\n"
                 out += "    pop     rax\n"
@@ -259,10 +288,9 @@ def compile_ops_x64(toks: list[Token], calls: list[str]):
     # add strings
     out += "segment .data\n"
     for index, string in enumerate(strings):
-        out += "    string_%d db %s%s0\n" % (
+        out += "    string_%d db %s\n" % (
             index,
-            ",".join(map(str, list(bytes(string, "utf-8")))),
-            "," if string else ""
+            ",".join(map(str, list(bytes(string, "utf-8"))))
         )
     
     return out

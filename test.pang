@@ -1,3 +1,3 @@
 include 'std.pang'
 
-SECURITY_NULL_SID_AUTHORITY "%d\n" call printf
+sizeof_FLOAT128 "%d\n" call printf

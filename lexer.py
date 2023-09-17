@@ -20,15 +20,17 @@ class Lexer():
     def _get(self) -> str:
         """ Returns current value and index++ """
 
-        self.index += 1
-
-        if self.index - 1 >= self.size:
+        if self.index >= self.size:
             return ""
-        
-        if self.raw[self.index - 1] == "\n":
+
+        prev = self.raw[self.index]
+
+        if prev == "\n":
             self.line += 1
         
-        return self.raw[self.index - 1]
+        self.index += 1
+        
+        return prev
 
     def _peek(self) -> str:
         """ Returns current value """
@@ -173,20 +175,20 @@ class Lexer():
                 )
             )
 
-        self.toks.append(Token(TokenType.INT, raw, ord(raw),
+        self.toks.append(Token(TokenType.INT, str(ord(raw)), ord(raw),
                          self.fn, line))
 
     def comment(self) -> None:
         self._get()
         
-        next_ch = self._get()
+        cur = self._get()
 
-        if next_ch == "/":
+        if cur == "/":
             while (cur := self._get()) != "\n":
                 if not cur:
                     break
             return
-        elif next_ch == "*":
+        elif cur == "*":
             while (cur := self._get()):
                 if cur + self._peek() == "*/":
                     break
@@ -284,13 +286,16 @@ class Lexer():
         if raw in keyword_map:
             self.toks.append(Token(keyword_map.get(raw), raw,
                              raw, self.fn, line))
-        elif raw == "call":
-            self.call()
-        elif raw == "include":
-            self.include_file()
-        else:
-            self.toks.append(Token(TokenType.ID, raw, raw,
-                             self.fn, line))
+            return
+        
+        match raw:
+            case "call":
+                self.call()
+            case "include":
+                self.include_file()
+            case _:
+                self.toks.append(Token(TokenType.ID, raw, raw,
+                            self.fn, line))
 
     def get_tokens_without_macros(self) -> None:
         current = ""
@@ -310,29 +315,33 @@ class Lexer():
 
             if current in "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 self.identifier()
+                continue
             elif current in "+-1234567890":
                 self.num()
-            elif current == "\"":
-                self.string()
-            elif current == "\'":
-                self.char()
-            elif current == "/":
-                self.comment()
-            elif current == "=":
-                self.atom(TokenType.EQUAL)
-            elif current == "!":
-                self.atom(TokenType.NOT_EQUAL)
-            elif current == ">":
-                self.atom(TokenType.GREATER_THAN)
-            elif current == "<":
-                self.atom(TokenType.SMALLER_THAN)
-            else:
-                Croak(
-                    ErrorType.Syntax,
-                    "invalid character found in file \"%s\" (detected at line: %d): %c" % (
-                        self.fn, self.line, current
+                continue
+            
+            match current:
+                case "\"":
+                    self.string()
+                case "\'":
+                    self.char()
+                case "/":
+                    self.comment()
+                case "=":
+                    self.atom(TokenType.EQUAL)
+                case "!":
+                    self.atom(TokenType.NOT_EQUAL)
+                case ">":
+                    self.atom(TokenType.GREATER_THAN)
+                case "<":
+                    self.atom(TokenType.SMALLER_THAN)
+                case _:
+                    Croak(
+                        ErrorType.Syntax,
+                        "invalid character found in file \"%s\" (detected at line: %d): %c" % (
+                            self.fn, self.line, current
+                        )
                     )
-                )
 
     def get_tokens(self) -> None:
         self.get_tokens_without_macros()
@@ -346,10 +355,10 @@ class Lexer():
         cur_toks = []
         macros = {
             "__VERSION__": [Token(TokenType.INT, str(PANG_VER), int(PANG_VER))],
-            "__BASE_FILE__": [Token(TokenType.STR, self.fn, realpath(self.fn))],
-            "__TIME__": [Token(TokenType.STR, COMPILE_TIME, COMPILE_TIME)],
-            "__DATE__": [Token(TokenType.STR, COMPILE_DATE, COMPILE_DATE)],
-            "__ARCH__": [Token(TokenType.STR, ARCHITECTURE, ARCHITECTURE)],
+            "__BASE_FILE__": [Token(TokenType.STR, "\"%s\"" % self.fn, realpath(self.fn))],
+            "__TIME__": [Token(TokenType.STR, "\"%s\"" % COMPILE_TIME, COMPILE_TIME)],
+            "__DATE__": [Token(TokenType.STR, "\"%s\"" % COMPILE_DATE, COMPILE_DATE)],
+            "__ARCH__": [Token(TokenType.STR, "\"%s\"" % ARCHITECTURE, ARCHITECTURE)],
         }
         
         __ENUM__ = 0
@@ -415,7 +424,7 @@ class Lexer():
                         cur_toks.append(Token(TokenType.INT, str(tok.ln), tok.ln, tok.filename, tok.ln))
                         continue
                     elif tok.value == "__FILE__":
-                        cur_toks.append(Token(TokenType.STR, tok.filename, realpath(tok.filename), tok.filename, tok.ln))
+                        cur_toks.append(Token(TokenType.STR, "\"%s\"" % tok.filename, realpath(tok.filename), tok.filename, tok.ln))
                         continue
                     
                     if tok.value not in macros:
@@ -457,7 +466,7 @@ class Lexer():
                                                   tok.filename, tok.ln))
                     continue
                 elif tok.value == "__FILE__":
-                    macro_added_toks.append(Token(TokenType.STR, tok.filename, realpath(tok.filename), tok.filename, tok.ln))
+                    macro_added_toks.append(Token(TokenType.STR, "\"%s\"" % tok.filename, realpath(tok.filename), tok.filename, tok.ln))
                     continue
                 
                 if tok.value not in macros:
