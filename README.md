@@ -1,8 +1,8 @@
-## Pang
+# Pang #
 
 Pang is a stack-based, interpreted and compiled programming language.
 
-# All directories
+## All directories ##
 
 The documentation for pang can be found in the documentation directory.
 
